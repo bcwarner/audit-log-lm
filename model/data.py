@@ -26,15 +26,16 @@ class EHRAuditDataset(Dataset):
         self,
         root_dir: str,
         shift_sep_hr: int = 4,
-        user_cols: List[str] = ["PAT_ID"],
-        timestamp_col: List[str] = "ACCESS_INSTANT",
+        user_col: str = "PAT_ID",
+        timestamp_col: str = "ACCESS_INSTANT",
         event_type_cols: List[str] = ["METRIC_NAME", "REPORT_NAME"],
         log_name: str = None,
         vocab: EHRVocab = None,
     ):
-        self.examples = []
+        self.shifts = []
+        self.provider = os.path.basename(root_dir)
         self.shift_sep_hr = shift_sep_hr
-        self.user_cols = user_cols
+        self.user_col = user_col
         self.timestamp_col = timestamp_col
         self.event_type_cols = event_type_cols
         self.log_name = log_name
@@ -50,7 +51,7 @@ class EHRAuditDataset(Dataset):
         df = pd.read_csv(path)
 
         # Delete all columns not included
-        df = df[self.user_cols + self.timestamp_col + self.event_type_cols]
+        df = df[[self.user_col, self.timestamp_col] + self.event_type_cols]
 
         # Ensure that the dataframe is sorted by timestamp.
         df = df.sort_values(by=self.timestamp_col)
@@ -77,19 +78,20 @@ class EHRAuditDataset(Dataset):
         # Convert the user IDs in each shift to a unique integer
         # Also convert the events to the corresponding vocab value.
         for shift in shifts:
-            for col in self.user_cols:
-                shift[col] = shift[col].astype("category").cat.codes
-                # TODO: Decide on how to encode these best.
+            shift[self.user_col] = shift[self.user_col].astype("category").cat.codes
+            # TODO: Decide on how to encode these best.
+
+        self.shifts = shifts
 
     def __getitem__(self, item):
-        if len(self.examples) == 0:
+        if len(self.shifts) == 0:
             self.load_from_log()
-        return self.examples[item]
+        return self.shifts[item]
 
     def __len__(self):
-        if len(self.examples) == 0:
+        if len(self.shifts) == 0:
             self.load_from_log()
-        return len(self.examples)
+        return len(self.shifts)
 
 
 class EHRAuditTransforms(object):
@@ -108,12 +110,12 @@ class EHRAuditTransforms(object):
 
     def __init__(
         self,
-        user_cols: List[str],
+        user_col: str,
         event_type_cols: List[str],
         timestamp_col: str,
         vocab: EHRVocab,
     ):
-        self.user_cols = user_cols
+        self.user_col = user_col
         self.event_type_cols = event_type_cols
         self.timestamp_col = timestamp_col
         self.vocab = vocab
@@ -128,7 +130,7 @@ class EHRAuditTransforms(object):
         # TODO: Explore whether the REaLTabFormer strategy is better.
 
         # Convert each shift to tokenized sequences.
-        tokenized_cols = self.user_cols + self.event_type_cols + [self.timestamp_col]
+        tokenized_cols = [self.user_col, self.timestamp_col] + self.event_type_cols
 
         tokenized_example = []
         for i, row in shift.iterrows():
