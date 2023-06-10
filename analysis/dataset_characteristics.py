@@ -71,10 +71,15 @@ if __name__ == "__main__":
         # - Distribution of time deltas.
 
         print(f"Summarizing {dataset.provider}")
-        statistics = {}
-        for shift in tqdm(dataset):
+        statistics = defaultdict(list)
+        for shift in dataset:
+            # Calculate the number of sessions (i.e. gaps of 5 or more minutes)
+            statistics["Sessions"].append(len(shift[shift[time_col] > 5 * 60]) + 1)
             statistics["Patients"].append(shift[patient_col].nunique())
             statistics["Events"].append(len(shift))
+            statistics["Events/Session"].append(
+                statistics["Events"][-1] / statistics["Sessions"][-1]
+            )
             statistics["Mean Time Delta"].append(shift[time_col].mean())
             statistics["Min Time Delta"].append(shift[time_col].min())
             statistics["Max Time Delta"].append(shift[time_col].max())
@@ -84,13 +89,14 @@ if __name__ == "__main__":
     # Summarize each provider in parallel.
     from joblib import Parallel, delayed
 
-    par_statistics = Parallel(n_jobs=-1, verbose=1)(
+    n_jobs = -1 if args.provider is None else 1
+    par_statistics = Parallel(n_jobs=n_jobs, verbose=1)(
         delayed(summarize)(dataset) for dataset in datasets
     )
 
     # Combine the statistics from each provider.
     statistics = defaultdict(list)
-    for provider in statistics:
+    for provider in par_statistics:
         for k, v in provider.items():
             statistics[k].extend(v)
 
@@ -99,21 +105,35 @@ if __name__ == "__main__":
     for k, v in statistics.items():
         stats = np.array(v)
         summary_stats[f"{k} Provider Mean"] = stats.mean()
-        summary_stats[f"{k} Provider Std"] = stats.std()
+        summary_stats[f"{k} Provider Std"] = np.nanstd(stats)
         summary_stats[f"{k} Provider Min"] = np.min(stats)
         summary_stats[f"{k} Provider Max"] = np.max(stats)
 
     # Print the summary statistics.
     print(tabulate(summary_stats.items(), tablefmt="pretty"))
-    print(tabulate(summary_stats.items(), tablefmt="latex"))
 
-    def histogram(data, title, xlabel, ylabel, filename):
-        plt.hist(data, bins=100)
+    # Save the LaTeX table and a tsv.
+    with open(os.path.join(results_path, "dataset_characteristics.tex"), "w") as f:
+        f.write(tabulate(summary_stats.items(), tablefmt="latex"))
+    with open(os.path.join(results_path, "dataset_characteristics.tsv"), "w") as f:
+        f.write(tabulate(summary_stats.items(), tablefmt="tsv"))
+
+    def histogram(data, title, xlabel, ylabel, filename, semilog=False):
+        plt.clf()
+        if semilog:
+            logbins = np.logspace(
+                np.log10(np.min(data) + 1), np.log10(np.max(data)), 50
+            )
+            plt.hist(data, bins=logbins)
+            plt.xscale("log")
+        else:
+            plt.hist(data, bins=100)
         plt.xlabel(xlabel)
         plt.title(title)
         plt.ylabel(ylabel)
         plt.show()
-        plt.savefig(os.path.join(results_path, filename))
+        plt.savefig(os.path.join(results_path, filename + ".png"))
+        tikzplotlib.save(os.path.join(results_path, filename + ".tex"))
 
     # Plot the distribution of time deltas.
     histogram(
@@ -121,7 +141,8 @@ if __name__ == "__main__":
         f"Mean Time Delta/Shift (n={len(statistics['Mean Time Delta'])})",
         "Mean Time Delta (s)",
         "Frequency",
-        "mean_time_delta.png",
+        "mean_time_delta",
+        semilog=True,
     )
 
     histogram(
@@ -129,5 +150,24 @@ if __name__ == "__main__":
         f"Number of Patients/Shift (n={len(statistics['Patients'])})",
         "Number of Patients",
         "Frequency",
-        "num_patients.png",
+        "num_patients",
+        semilog=True,
+    )
+
+    histogram(
+        statistics["Events/Session"],
+        f"Number of Events/Session (n={len(statistics['Events/Session'])})",
+        "Number of Events/Session",
+        "Frequency",
+        "num_events_session",
+        semilog=True,
+    )
+
+    histogram(
+        statistics["Events"],
+        f"Number of Events/Shift (n={len(statistics['Events'])})",
+        "Number of Events/Shift",
+        "Frequency",
+        "num_events",
+        semilog=True,
     )

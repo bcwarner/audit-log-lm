@@ -53,13 +53,11 @@ class EHRAuditDataset(Dataset):
         # Delete all columns not included
         df = df[[self.user_col, self.timestamp_col] + self.event_type_cols]
 
-        # Ensure that the dataframe is sorted by timestamp.
-        df = df.sort_values(by=self.timestamp_col)
-
         # Convert the timestamp to time deltas.
-        df[self.timestamp_col] = pd.to_datetime(df[self.timestamp_col])
-        df[self.timestamp_col] = df[self.timestamp_col].diff()
-        df[self.timestamp_col] = df[self.timestamp_col].dt.total_seconds()
+        # Assumes they are already in seconds.
+        df.loc[:, self.timestamp_col] = df.loc[:, self.timestamp_col].copy().diff()
+        # Set beginning of shift to 0, otherwise it's nan.
+        df.loc[0, self.timestamp_col] = 0
 
         # Separate the data into shifts.
         shift_sep_sec = self.shift_sep_hr * 60 * 60
@@ -67,13 +65,13 @@ class EHRAuditDataset(Dataset):
         shift_start_idx = 0
         for i, row in df.iterrows():
             if row[self.timestamp_col] > shift_sep_sec:
-                df[self.timestamp_col][i] = 0  # Reset the time delta to 0.
+                df.loc[i, self.timestamp_col] = 0  # Reset the time delta to 0.
                 shift_end_idx = i
-                shifts.append(df[shift_start_idx:shift_end_idx])
+                shifts.append(df.iloc[shift_start_idx:shift_end_idx, :].copy())
                 shift_start_idx = shift_end_idx
 
         # Append the last shift
-        shifts.append(df[shift_start_idx:])
+        shifts.append(df.iloc[shift_start_idx:, :].copy())
 
         # Convert the user IDs in each shift to a unique integer
         # Also convert the events to the corresponding vocab value.
@@ -124,7 +122,7 @@ class EHRAuditTransforms(object):
     def __call__(self, shift):
         # Logarithmically scale the time deltas.
         # From (Padhi et al., 2021)
-        shift[self.timestamp_col] = shift[self.timestamp_col].apply(
+        shift.loc[:, self.timestamp_col] = shift.loc[:, self.timestamp_col].apply(
             lambda x: np.log(x + 1)
         )
         # TODO: Explore whether the REaLTabFormer strategy is better.
