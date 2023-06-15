@@ -34,7 +34,7 @@ if __name__ == "__main__":
         config = yaml.safe_load(f)
     data_path = config["audit_log_path"]
     log_name = config["audit_log_file"]
-    shift_len_hrs = config["shift_len_hrs"]
+    sep_min = config["sep_min"]
     results_path = config["results_path"]
 
     # Load the datasets
@@ -47,14 +47,12 @@ if __name__ == "__main__":
             if not os.path.exists(log_path) or os.path.getsize(log_path) == 0:
                 continue
             datasets.append(
-                EHRAuditDataset(
-                    prov_path, shift_sep_hr=shift_len_hrs, log_name=log_name
-                )
+                EHRAuditDataset(prov_path, shift_sep_hr=sep_min, log_name=log_name)
             )
     else:
         prov_path = os.path.join(data_path, args.provider)
         datasets.append(
-            EHRAuditDataset(prov_path, shift_sep_hr=shift_len_hrs, log_name=log_name)
+            EHRAuditDataset(prov_path, shift_sep_hr=sep_min, log_name=log_name)
         )
 
     # Relevant columns

@@ -2,13 +2,22 @@
 from collections import OrderedDict
 import os
 import pickle
-from typing import Dict
+from typing import Dict, List
 
 
 class EHRVocab:
     def __init__(
-        self, categorical_column_opts: Dict[str, str], max_len=512, vocab_path=None
+        self,
+        categorical_column_opts: Dict[str, List[str]],
+        max_len=512,
+        vocab_path=None,
     ):
+        """
+
+        :param categorical_column_opts: Mapping of categorical column names to the list of possible values.
+        :param max_len: Maximum length of the input sequence.
+        :param vocab_path: Where to save/load the vocab.
+        """
         if vocab_path is not None:
             with open(vocab_path, "rb") as f:
                 self.__dict__.update(pickle.load(f))
@@ -27,24 +36,33 @@ class EHRVocab:
                 "sep_token": "<sep>",
                 "cls_token": "<cls>",
             }
+
+            def new_token(field, value):
+                self.field_tokens[field][value] = len(self.global_tokens)
+                self.global_tokens[len(self.global_tokens)] = (field, value)
+
+            # Allocate the base tokens.
             for k, v in self.special_tokens.items():
                 setattr(self, k, v)
-                self.global_tokens[v] = [len(self.field_tokens), "special_tokens"]
+                new_token("special", v)
 
             self.max_len = max_len
-
             self.vocab_path = vocab_path
 
+            # Allocate the categorical tokens.
             for category, tokens in categorical_column_opts.items():
-                self.field_tokens[category] = OrderedDict(
-                    {token: idx for idx, token in enumerate(tokens)}
-                )
-                for token in tokens:
-                    self.global_tokens[token] = [len(self.global_tokens) - 1, category]
+                for t in tokens:
+                    new_token(category, t)
 
     def save(self):
         with open(self.vocab_path, "wb") as f:
             pickle.dump(self, f)
+
+    def field_to_token(self, field, value):
+        return self.field_tokens[field][value]
+
+    def token_to_global(self, token):
+        return self.global_tokens[token]
 
     def __len__(self):
         return len(self.global_tokens)
