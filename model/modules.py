@@ -81,12 +81,16 @@ class EHRAuditDataModule(pl.LightningDataModule):
         sep_min = self.config["sep_min"]
 
         # Transforms
-        transforms = torchvision.transforms.Compose(
+        self.transforms = torchvision.transforms.Compose(
             [
                 EHRAuditTimestampBin(
                     timestamp_col="ACCESS_TIME", timestamp_spaces=[-2, 4, 6 * 3]
                 ),
-                EHRAuditTokenize(),
+                EHRAuditTokenize(
+                    user_col="PAT_ID",
+                    timestamp_col="ACCESS_TIME",
+                    event_type_cols=["METRIC_NAME"],
+                ),
             ]
         )
 
@@ -104,13 +108,23 @@ class EHRAuditDataModule(pl.LightningDataModule):
 
         self.datasets = datasets
 
-        # Apply
+        # Split the datasets
+        train_size = int(len(self.datasets) * self.config["train_split"])
+        val_size = int(len(self.datasets) * self.config["val_split"])
+        test_size = len(self.datasets) - train_size - val_size
+        (
+            self.train_dataset,
+            self.val_dataset,
+            self.test_dataset,
+        ) = torch.utils.data.random_split(
+            self.datasets, [train_size, val_size, test_size]
+        )
 
     def train_dataloader(self):
-        pass
+        return torch.utils.data.DataLoader(self.transforms(self.train_dataset))
 
     def val_dataloader(self):
-        pass
+        return torch.utils.data.DataLoader(self.transforms(self.val_dataset))
 
     def test_dataloader(self):
-        pass
+        return torch.utils.data.DataLoader(self.transforms(self.test_dataset))

@@ -24,6 +24,7 @@ class EHRVocab:
         else:
             # Load the other vocab options from the config file.
             self.field_tokens = OrderedDict()
+            self.field_ids = OrderedDict()
             self.global_tokens = OrderedDict()
 
             # Set the default vocab options for GPT-style models.
@@ -39,6 +40,7 @@ class EHRVocab:
 
             def new_token(field, value):
                 self.field_tokens[field][value] = len(self.global_tokens)
+                self.field_ids[field].append(len(self.global_tokens))
                 self.global_tokens[len(self.global_tokens)] = (field, value)
 
             # Allocate the base tokens.
@@ -63,6 +65,15 @@ class EHRVocab:
 
     def token_to_global(self, token):
         return self.global_tokens[token]
+
+    def global_to_token(self, global_id):
+        return self.global_tokens[global_id][1]
+
+    def globals_to_locals(self, global_ids):
+        return [self.global_to_token(g) for g in global_ids]
+
+    def field_names(self):
+        return list(self.field_tokens.keys())
 
     def __len__(self):
         return len(self.global_tokens)

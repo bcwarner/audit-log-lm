@@ -119,7 +119,7 @@ class EHRAuditTimestampBin(object):
     def __call__(self, seq):
         # Logarithmically scale the time deltas and then bin.
         # Based on (Padhi et al., 2021), but applies logarithmic binning.
-        seq.loc[:, self.timestamp_col] = seq.loc[:, self.timestamp_col].apply(
+        seq.seqs.loc[:, self.timestamp_col] = seq.seqs.loc[:, self.timestamp_col].apply(
             lambda x: np.digitize(np.log(x + 1), self.timestamp_spaces)
         )
 
@@ -155,7 +155,7 @@ class EHRAuditTokenize(object):
         tokenized_cols = [self.user_col, self.timestamp_col] + self.event_type_cols
 
         tokenized_example = []
-        for i, row in seq.iterrows():
+        for i, row in seq.seqs.iterrows():
             tokenized_example.extend(
                 [self.vocab.field_to_token(col, row[col]) for col in tokenized_cols]
             )
