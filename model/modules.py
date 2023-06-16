@@ -8,17 +8,13 @@ from transformers import PretrainedConfig
 
 from Sophia.sophia import SophiaG
 from model.data import EHRAuditDataset, EHRAuditTimestampBin, EHRAuditTokenize
+from model.vocab import EHRVocab
 
 
 class EHRAuditPretraining(pl.LightningModule):
-    def __init__(
-        self,
-        model: type,
-        model_config: PretrainedConfig,
-    ):
+    def __init__(self, model):
         super().__init__()
-        self.model = model(model_config)
-        self.model_config = model_config
+        self.model = model
         self.loss = torch.nn.CrossEntropyLoss()
         self.step = 0
 
@@ -55,7 +51,7 @@ class EHRAuditPretraining(pl.LightningModule):
     def configure_optimizers(self):
         return SophiaG(
             self.model.parameters(),
-            lr=self.config.lr,
+            lr=1e-4,
             betas=(0.9, 0.999),
             weight_decay=0.01,
         )
@@ -80,6 +76,8 @@ class EHRAuditDataModule(pl.LightningDataModule):
         log_name = self.config["audit_log_file"]
         sep_min = self.config["sep_min"]
 
+        self.vocab = EHRVocab(vocab_path=self.config["vocab_path"])
+
         # Transforms
         self.transforms = torchvision.transforms.Compose(
             [
@@ -90,6 +88,7 @@ class EHRAuditDataModule(pl.LightningDataModule):
                     user_col="PAT_ID",
                     timestamp_col="ACCESS_TIME",
                     event_type_cols=["METRIC_NAME"],
+                    vocab=self.vocab,
                 ),
             ]
         )

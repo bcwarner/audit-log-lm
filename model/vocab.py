@@ -1,18 +1,18 @@
 # Used to build the vocab for the EHR audit log dataset.
+import argparse
 from collections import OrderedDict
 import os
 import pickle
 from typing import Dict, List
 
 import numpy as np
-import pandas as pd
 import yaml
 
 
 class EHRVocab:
     def __init__(
         self,
-        categorical_column_opts: Dict[str, List[str]],
+        categorical_column_opts: Dict[str, List[str]] = None,
         vocab_path=None,
     ):
         """
@@ -21,9 +21,9 @@ class EHRVocab:
         :param max_len: Maximum length of the input sequence.
         :param vocab_path: Where to save/load the vocab.
         """
-        if vocab_path is not None:
+        if vocab_path is not None and os.path.exists(vocab_path):
             with open(vocab_path, "rb") as f:
-                self.__dict__.update(pickle.load(f))
+                self.__dict__.update(pickle.load(f).__dict__)
         else:
             # Load the other vocab options from the config file.
             self.field_tokens = OrderedDict()
@@ -33,9 +33,14 @@ class EHRVocab:
             # Set the default vocab options for GPT-style models.
             self.special_tokens = {
                 "unk_token": "<unk>",
+                "eos_token": "<eos>",
             }
 
             def new_token(field, value):
+                if field not in self.field_tokens:
+                    self.field_tokens[field] = OrderedDict()
+                    self.field_ids[field] = []
+
                 self.field_tokens[field][value] = len(self.global_tokens)
                 self.field_ids[field].append(len(self.global_tokens))
                 self.global_tokens[len(self.global_tokens)] = (field, value)
@@ -54,7 +59,7 @@ class EHRVocab:
 
     def save(self):
         with open(self.vocab_path, "wb") as f:
-            pickle.dump(self, f)
+            pickle.dump(self, f.__dict__)
 
     def field_to_token(self, field, value):
         return self.field_tokens[field][value]
@@ -74,14 +79,15 @@ class EHRVocab:
     def __len__(self):
         return len(self.global_tokens)
 
-    def __getitem__(self, key):
-        return self.global_tokens[key]
-
 
 if __name__ == "__main__":
     # Load the config
-    with open(os.path.join(os.path.dirname(__file__), "config.yaml")) as f:
+    with open(os.path.join(os.path.pardir, "config.yaml")) as f:
         config = yaml.safe_load(f)
+
+    # Erase the old vocab
+    if os.path.exists(config["vocab_path"]):
+        os.remove(config["vocab_path"])
 
     # This is where we'll actually build the vocab and then save it.
     categorical_column_opts = dict()
@@ -98,8 +104,11 @@ if __name__ == "__main__":
         config["timestamp_bins"]["bins"],
     )
 
+    # Segfault otherwise
+    import pandas as pd
+
     # METRIC_NAME
-    df = pd.read_xlsx(config["metric_name_dict"]["file"])
+    df = pd.read_excel(config["metric_name_dict"]["file"], engine="openpyxl")
     categorical_column_opts["METRIC_NAME"] = df[
         config["metric_name_dict"]["column"]
     ].tolist()
