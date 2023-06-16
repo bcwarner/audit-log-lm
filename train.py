@@ -10,25 +10,24 @@ from model.modules import EHRAuditPretraining, EHRAuditDataModule
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "--model", type=str, default="rwkv", help="Model to use for pretraining."
+    "--model", type=str, default="gpt2", help="Model to use for pretraining."
 )
 parser.add_argument(
     "--max_epochs", type=int, default=10, help="Number of epochs to pretrain for."
 )
 args = parser.parse_args()
 
+
+dm = EHRAuditDataModule(os.path.join(os.path.dirname(__file__), "config.yaml"))
+
 models = {
-    "rwkv": EHRAuditRWKV,
     "gpt2": EHRAuditGPT2,
 }
 model_configs = {
-    "rwkv": RwkvConfig(),
     "gpt2": GPT2Config(),
 }
-
-
 model = models[args.model](model_configs[args.model])
-dm = EHRAuditDataModule(os.path.join(os.path.dirname(__file__), "config.yaml"))
+
 trainer = pl.Trainer(
     max_epochs=args.max_epochs,
 )
