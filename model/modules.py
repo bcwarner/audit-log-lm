@@ -1,7 +1,6 @@
 import os
 
 import torch
-import torchvision
 import yaml
 from lightning import pytorch as pl
 from transformers import PretrainedConfig
@@ -22,29 +21,49 @@ class EHRAuditPretraining(pl.LightningModule):
         return self.model(input_ids, attention_mask=attention_mask, labels=labels)
 
     def training_step(self, batch, batch_idx):
-        input_ids, attention_mask, labels = batch
-        outputs = self.model(input_ids, attention_mask=attention_mask, labels=labels)
-        loss = outputs.loss
+        input_ids = batch
+        labels = (
+            input_ids.clone().detach()
+        )  # Should maybe use data collation in the future.
+        outputs = self.model(input_ids, labels)
+        loss = outputs[0]
         self.log(
-            "train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True
+            "train_loss",
+            loss.mean(),
+            on_step=True,
+            on_epoch=True,
+            prog_bar=True,
+            logger=True,
         )
         return loss
 
     def validation_step(self, batch, batch_idx):
-        input_ids, attention_mask, labels = batch
-        outputs = self(input_ids, attention_mask=attention_mask, labels=labels)
-        loss = outputs.loss
+        input_ids = batch
+        labels = input_ids.clone().detach()
+        outputs = self.model(input_ids, labels)
+        loss = outputs[0]
         self.log(
-            "val_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True
+            "val_loss",
+            loss.mean(),
+            on_step=True,
+            on_epoch=True,
+            prog_bar=True,
+            logger=True,
         )
         return loss
 
     def test_step(self, batch, batch_idx):
-        input_ids, attention_mask, labels = batch
-        outputs = self(input_ids, attention_mask=attention_mask, labels=labels)
-        loss = outputs.loss
+        input_ids = batch
+        labels = input_ids.clone().detach()
+        outputs = self.model(input_ids, labels)
+        loss = outputs[0]
         self.log(
-            "test_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True
+            "test_loss",
+            loss.mean(),
+            on_step=True,
+            on_epoch=True,
+            prog_bar=True,
+            logger=True,
         )
         return loss
 
@@ -79,19 +98,22 @@ class EHRAuditDataModule(pl.LightningDataModule):
         self.vocab = EHRVocab(vocab_path=self.config["vocab_path"])
 
         # Transforms
-        self.transforms = torchvision.transforms.Compose(
-            [
-                EHRAuditTimestampBin(
-                    timestamp_col="ACCESS_TIME", timestamp_spaces=[-2, 4, 6 * 3]
-                ),
-                EHRAuditTokenize(
-                    user_col="PAT_ID",
-                    timestamp_col="ACCESS_TIME",
-                    event_type_cols=["METRIC_NAME"],
-                    vocab=self.vocab,
-                ),
-            ]
-        )
+        transforms = [
+            EHRAuditTimestampBin(
+                timestamp_col="ACCESS_TIME",
+                timestamp_spaces=[
+                    self.config["timestamp_bins"]["min"],
+                    self.config["timestamp_bins"]["max"],
+                    self.config["timestamp_bins"]["bins"],
+                ],
+            ),
+            EHRAuditTokenize(
+                user_col="PAT_ID",
+                timestamp_col="ACCESS_TIME",
+                event_type_cols=["METRIC_NAME"],
+                vocab=self.vocab,
+            ),
+        ]
 
         # Load the datasets
         datasets = []
@@ -101,9 +123,10 @@ class EHRAuditDataModule(pl.LightningDataModule):
             log_path = os.path.join(prov_path, log_name)
             if not os.path.exists(log_path) or os.path.getsize(log_path) == 0:
                 continue
-            datasets.append(
-                EHRAuditDataset(prov_path, sep_min=sep_min, log_name=log_name)
-            )
+            dset = EHRAuditDataset(prov_path, sep_min=sep_min, log_name=log_name)
+            for t in transforms:
+                dset = t(dset)
+            datasets.append(dset)
 
         self.datasets = datasets
 
@@ -119,11 +142,19 @@ class EHRAuditDataModule(pl.LightningDataModule):
             self.datasets, [train_size, val_size, test_size]
         )
 
+        self.num_workers = os.cpu_count()
+
     def train_dataloader(self):
-        return torch.utils.data.DataLoader(self.transforms(self.train_dataset))
+        return torch.utils.data.DataLoader(
+            self.train_dataset, num_workers=self.num_workers
+        )
 
     def val_dataloader(self):
-        return torch.utils.data.DataLoader(self.transforms(self.val_dataset))
+        return torch.utils.data.DataLoader(
+            self.val_dataset, num_workers=self.num_workers
+        )
 
     def test_dataloader(self):
-        return torch.utils.data.DataLoader(self.transforms(self.test_dataset))
+        return torch.utils.data.DataLoader(
+            self.test_dataset, num_workers=self.num_workers
+        )

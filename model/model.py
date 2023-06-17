@@ -23,12 +23,13 @@ class EHRAuditGPT2(GPT2LMHeadModel):
     def forward(
         self,
         input_ids=None,
+        labels=None,
         attention_mask=None,
+        past=None,
         token_type_ids=None,
         position_ids=None,
         head_mask=None,
         inputs_embeds=None,
-        labels=None,
         past_key_values=None,
         use_cache=None,
         output_attentions=None,
@@ -51,7 +52,6 @@ class EHRAuditGPT2(GPT2LMHeadModel):
             **kwargs
         )
         hidden_states = transformer_outputs[0]
-
         lm_logits = self.lm_head(hidden_states)
 
         outputs = (lm_logits,) + transformer_outputs[1:]
@@ -76,6 +76,8 @@ class EHRAuditGPT2(GPT2LMHeadModel):
 
                 # Select the relevant logits.
                 lm_logits_field = shift_logits[:, col_ids, :][:, :, global_ids_field]
+
+                # Select the relevant labels.
                 lm_labels_field = shift_labels[:, col_ids]
                 lm_labels_local_field = self.vocab.globals_to_locals(lm_labels_field)
 

@@ -6,6 +6,7 @@ import pickle
 from typing import Dict, List
 
 import numpy as np
+import torch
 import yaml
 
 
@@ -23,7 +24,7 @@ class EHRVocab:
         """
         if vocab_path is not None and os.path.exists(vocab_path):
             with open(vocab_path, "rb") as f:
-                self.__dict__.update(pickle.load(f).__dict__)
+                self.__dict__.update(pickle.load(f))
         else:
             # Load the other vocab options from the config file.
             self.field_tokens = OrderedDict()
@@ -59,19 +60,22 @@ class EHRVocab:
 
     def save(self):
         with open(self.vocab_path, "wb") as f:
-            pickle.dump(self, f.__dict__)
+            pickle.dump(self.__dict__, f)
 
     def field_to_token(self, field, value):
         return self.field_tokens[field][value]
 
-    def token_to_global(self, token):
-        return self.global_tokens[token]
-
     def global_to_token(self, global_id):
-        return self.global_tokens[global_id][1]
+        return self.global_tokens[global_id][1] if global_id != -100 else -100
 
-    def globals_to_locals(self, global_ids):
-        return [self.global_to_token(g) for g in global_ids]
+    def globals_to_locals(self, global_ids: torch.Tensor):
+        # Iterate over the elements of the tensor and convert them to local IDs.
+        local_ids = torch.zeros_like(global_ids)
+        for i in range(global_ids.shape[0]):  # Batch
+            for j in range(global_ids.shape[1]):  # Element
+                local_ids[i, j] = self.global_to_token(global_ids[i, j].item())
+
+        return local_ids
 
     def field_names(self):
         return list(self.field_tokens.keys())
@@ -103,6 +107,8 @@ if __name__ == "__main__":
         config["timestamp_bins"]["max"],
         config["timestamp_bins"]["bins"],
     )
+
+    categorical_column_opts["TIME_DELTA"] = [str(i) for i in range(len(bins))]
 
     # Segfault otherwise
     import pandas as pd

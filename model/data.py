@@ -116,14 +116,15 @@ class EHRAuditTimestampBin(object):
         )
         pass
 
-    def __call__(self, seq):
+    def __call__(self, ds):
         # Logarithmically scale the time deltas and then bin.
         # Based on (Padhi et al., 2021), but applies logarithmic binning.
-        seq.seqs.loc[:, self.timestamp_col] = seq.seqs.loc[:, self.timestamp_col].apply(
-            lambda x: np.digitize(np.log(x + 1), self.timestamp_spaces)
-        )
+        for s in ds.seqs:
+            s.loc[:, self.timestamp_col] = ds.seqs.loc[:, self.timestamp_col].apply(
+                lambda x: np.digitize(np.log(x + 1), self.timestamp_spaces)
+            )
 
-        return seq
+        return ds
 
 
 class EHRAuditTokenize(object):
@@ -150,26 +151,29 @@ class EHRAuditTokenize(object):
         self.vocab = vocab
         pass
 
-    def __call__(self, seq):
+    def __call__(self, ds):
         # Convert each shift/session to tokenized sequences.
         tokenized_cols = [self.user_col, self.timestamp_col] + self.event_type_cols
 
         tokenized_example = []
-        for i, row in seq.seqs.iterrows():
-            tokenized_example.extend(
-                [self.vocab.field_to_token(col, row[col]) for col in tokenized_cols]
-            )
+        for s in ds.seqs:
+            for i, row in s.iterrows():
+                tokenized_example.extend(
+                    [self.vocab.field_to_token(col, row[col]) for col in tokenized_cols]
+                )
 
         # Add the end of sequence token.
-        tokenized_example.append(self.vocab.special_tokens["eos_token"])
+        tokenized_example.append(
+            self.vocab.field_to_token("special", self.vocab.eos_token)
+        )
 
         # Pad the sequence to the maximum length.
         # TODO: Move this to the actual  model.
-        max_len = self.vocab.max_len
-        tokenized_example = tokenized_example[:max_len]
-        tokenized_example = tokenized_example + [
-            self.vocab.special_tokens["pad_token"]
-        ] * (max_len - len(tokenized_example))
+        # max_len = self.vocab.max_len
+        # tokenized_example = tokenized_example[:max_len]
+        # tokenized_example = tokenized_example + [
+        #    self.vocab.special_tokens["pad_token"]
+        # ] * (max_len - len(tokenized_example))
 
         # Convert the sequence to a tensor.
         tokenized_example = torch.tensor(tokenized_example)
