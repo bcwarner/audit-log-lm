@@ -22,6 +22,10 @@ class EHRAuditPretraining(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         input_ids = batch
+        # Pad to max length
+        input_ids = torch.nn.functional.pad(
+            input_ids, (0, self.model.config.n_positions - input_ids.shape[1])
+        )
         labels = (
             input_ids.clone().detach()
         )  # Should maybe use data collation in the future.
@@ -39,6 +43,9 @@ class EHRAuditPretraining(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         input_ids = batch
+        input_ids = torch.nn.functional.pad(
+            input_ids, (0, self.model.config.n_positions - input_ids.shape[1])
+        )
         labels = input_ids.clone().detach()
         outputs = self.model(input_ids, labels)
         loss = outputs[0]
@@ -54,6 +61,9 @@ class EHRAuditPretraining(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         input_ids = batch
+        input_ids = torch.nn.functional.pad(
+            input_ids, (0, self.model.config.n_positions - input_ids.shape[1])
+        )
         labels = input_ids.clone().detach()
         outputs = self.model(input_ids, labels)
         loss = outputs[0]

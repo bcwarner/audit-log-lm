@@ -84,9 +84,11 @@ class EHRAuditGPT2(GPT2LMHeadModel):
                 # Compute the loss for the current column.
                 loss_fct = torch.nn.CrossEntropyLoss()
                 lm_loss_field = loss_fct(
-                    lm_logits_field.view(-1, self.config.vocab_size),
+                    lm_logits_field.view(-1, len(global_ids_field)),
                     lm_labels_local_field.view(-1),
                 )
+                if torch.isnan(lm_loss_field):
+                    breakpoint()
                 total_lm_loss += lm_loss_field
 
             # Append the loss to the end of the outputs.

@@ -33,7 +33,9 @@ models = {
 model_configs = {
     "gpt2": GPT2Config(
         vocab_size=len(vocab),
-        n_positions=4096,
+        n_positions=1024,
+        n_head=12,
+        n_layer=6,
     ),
 }
 model = models[args.model](model_configs[args.model], vocab)
@@ -41,7 +43,15 @@ model = models[args.model](model_configs[args.model], vocab)
 trainer = pl.Trainer(
     max_epochs=args.max_epochs,
 )
+pt_task = EHRAuditPretraining(model)
+
 trainer.fit(
-    EHRAuditPretraining(model),
+    pt_task,
     datamodule=dm,
+)
+
+trainer.test(
+    pt_task,
+    datamodule=dm,
+    verbose=True,
 )

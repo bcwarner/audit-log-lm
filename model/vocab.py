@@ -44,7 +44,11 @@ class EHRVocab:
 
                 self.field_tokens[field][value] = len(self.global_tokens)
                 self.field_ids[field].append(len(self.global_tokens))
-                self.global_tokens[len(self.global_tokens)] = (field, value)
+                self.global_tokens[len(self.global_tokens)] = (
+                    field,
+                    value,
+                    len(self.field_ids[field]),
+                )
 
             # Allocate the base tokens.
             for k, v in self.special_tokens.items():
@@ -66,7 +70,7 @@ class EHRVocab:
         return self.field_tokens[field][value]
 
     def global_to_token(self, global_id):
-        return self.global_tokens[global_id][1] if global_id != -100 else -100
+        return self.global_tokens[global_id][2] if global_id != -100 else -100
 
     def globals_to_locals(self, global_ids: torch.Tensor):
         # Iterate over the elements of the tensor and convert them to local IDs.
