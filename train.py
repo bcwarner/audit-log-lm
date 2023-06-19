@@ -57,11 +57,20 @@ if __name__ == "__main__":
         datamodule=dm,
     )
 
+    if trainer.interrupted:
+        # Don't save the model if it was interrupted.
+        exit(0)
+
     # Save the model according to the HuggingFace API
-    print("Saving model to", os.path.join(path_prefix, config["pretrained_model_path"]))
-    pt_task.model.save_pretrained(
-        os.path.join(path_prefix, config["pretrained_model_path"])
-    )
+    if path_prefix == "/storage1/":
+        # Second safeguard against overwriting a model.
+        print(
+            "Saving model to",
+            os.path.join(path_prefix, config["pretrained_model_path"]),
+        )
+        pt_task.model.save_pretrained(
+            os.path.join(path_prefix, config["pretrained_model_path"])
+        )
 
     print("Evaluating model")
     trainer.test(

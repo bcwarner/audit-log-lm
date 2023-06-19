@@ -1,5 +1,6 @@
 import os
 
+import joblib
 import torch
 import yaml
 from lightning import pytorch as pl
@@ -110,12 +111,6 @@ class EHRAuditDataModule(pl.LightningDataModule):
         self.vocab = vocab
 
     def prepare_data(self):
-        # Cannot set state here.
-        pass
-
-    def setup(self, stage=None):
-        # Load the data from the audit log directory.
-
         # Itereate through each prefix and determine which one exists, then choose that one.
         path_prefix = ""
         for prefix in self.config["path_prefix"]:
@@ -127,14 +122,18 @@ class EHRAuditDataModule(pl.LightningDataModule):
         log_name = self.config["audit_log_file"]
         sep_min = self.config["sep_min"]
 
-        # Load the datasets
-        datasets = []
-        for provider in tqdm(os.listdir(data_path)):
+        def log_load(self, provider: str):
+            print("Caching provider: ", provider)
             prov_path = os.path.join(data_path, provider)
             # Check the file is not empty and exists, there's a couple of these.
             log_path = os.path.join(prov_path, log_name)
             if not os.path.exists(log_path) or os.path.getsize(log_path) == 0:
-                continue
+                return
+
+            # Skip datasets we've already prepared.
+            if os.path.exists(os.path.join(prov_path, self.config["audit_log_cache"])):
+                return
+
             dset = EHRAuditDataset(
                 prov_path,
                 sep_min=sep_min,
@@ -146,8 +145,50 @@ class EHRAuditDataModule(pl.LightningDataModule):
                     self.config["timestamp_bins"]["bins"],
                 ],
                 should_tokenize=True,
+                cache=self.config["audit_log_cache"],
             )
-            datasets.append(dset)
+            dset.load_from_log()
+
+        # Load the datasets in parallel
+        joblib.Parallel(n_jobs=-1, verbose=1)(
+            joblib.delayed(log_load)(self, provider)
+            for provider in os.listdir(data_path)
+        )
+
+    def setup(self, stage=None):
+        # Load the datasets
+        path_prefix = ""
+        for prefix in self.config["path_prefix"]:
+            if os.path.exists(prefix):
+                path_prefix = prefix
+                break
+
+        data_path = os.path.join(path_prefix, self.config["audit_log_path"])
+        datasets = []
+        for provider in tqdm(os.listdir(data_path)):
+            # Check there's a cache file (some should not have this, see above)
+            prov_path = os.path.join(data_path, provider)
+            if not os.path.exists(
+                os.path.join(prov_path, self.config["audit_log_cache"])
+            ):
+                continue
+
+            dset = EHRAuditDataset(
+                prov_path,
+                sep_min=self.config["sep_min"],
+                log_name=self.config["audit_log_file"],
+                vocab=self.vocab,
+                timestamp_spaces=[
+                    self.config["timestamp_bins"]["min"],
+                    self.config["timestamp_bins"]["max"],
+                    self.config["timestamp_bins"]["bins"],
+                ],
+                should_tokenize=False,
+                cache=self.config["audit_log_cache"],
+            )
+            if len(dset) != 0:
+                datasets.append(dset)
+            # Should automatically load from cache.
 
         # Assign the datasets into different arrays of datasets to be chained together.
         train_indices, val_indices, test_indices = random_split(
@@ -162,18 +203,16 @@ class EHRAuditDataModule(pl.LightningDataModule):
         self.val_dataset = ChainDataset([datasets[i] for i in val_indices])
         self.test_dataset = ChainDataset([datasets[i] for i in test_indices])
         self.num_workers = os.cpu_count()
+        print(f"Using {self.num_workers} workers for data loading.")
+        print(
+            f"Train size: {len(train_indices)}, val size: {len(val_indices)}, test size: {len(test_indices)}"
+        )
 
     def train_dataloader(self):
-        return torch.utils.data.DataLoader(
-            self.train_dataset, num_workers=self.num_workers
-        )
+        return torch.utils.data.DataLoader(self.train_dataset, num_workers=0)
 
     def val_dataloader(self):
-        return torch.utils.data.DataLoader(
-            self.val_dataset, num_workers=self.num_workers
-        )
+        return torch.utils.data.DataLoader(self.val_dataset, num_workers=0)
 
     def test_dataloader(self):
-        return torch.utils.data.DataLoader(
-            self.test_dataset, num_workers=self.num_workers
-        )
+        return torch.utils.data.DataLoader(self.test_dataset, num_workers=0)
