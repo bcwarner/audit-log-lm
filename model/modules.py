@@ -3,6 +3,7 @@ import os
 import torch
 import yaml
 from lightning import pytorch as pl
+from torch.utils.data import ConcatDataset, random_split, ChainDataset
 from tqdm import tqdm
 from transformers import PretrainedConfig
 
@@ -127,7 +128,7 @@ class EHRAuditDataModule(pl.LightningDataModule):
         sep_min = self.config["sep_min"]
 
         # Load the datasets
-        data = []
+        datasets = []
         for provider in tqdm(os.listdir(data_path)):
             prov_path = os.path.join(data_path, provider)
             # Check the file is not empty and exists, there's a couple of these.
@@ -146,21 +147,20 @@ class EHRAuditDataModule(pl.LightningDataModule):
                 ],
                 should_tokenize=True,
             )
-            data.extend(dset.seqs)
-            break
+            datasets.append(dset)
 
-        self.data = data
-
-        # Split the datasets
-        train_size = int(len(self.data) * self.config["train_split"])
-        val_size = int(len(self.data) * self.config["val_split"])
-        test_size = len(self.data) - train_size - val_size
-        (
-            self.train_dataset,
-            self.val_dataset,
-            self.test_dataset,
-        ) = torch.utils.data.random_split(self.data, [train_size, val_size, test_size])
-
+        # Assign the datasets into different arrays of datasets to be chained together.
+        train_indices, val_indices, test_indices = random_split(
+            range(len(datasets)),
+            [
+                self.config["train_split"],
+                self.config["val_split"],
+                1 - self.config["train_split"] - self.config["val_split"],
+            ],
+        )
+        self.train_dataset = ChainDataset([datasets[i] for i in train_indices])
+        self.val_dataset = ChainDataset([datasets[i] for i in val_indices])
+        self.test_dataset = ChainDataset([datasets[i] for i in test_indices])
         self.num_workers = os.cpu_count()
 
     def train_dataloader(self):

@@ -48,7 +48,6 @@ class EHRAuditDataset(Dataset):
         if self.timestamp_spaces is None and self.should_tokenize is True:
             raise ValueError("Tokenization depends on timestamp binning.")
         self.should_tokenize = should_tokenize
-        self.load_from_log()
 
     def load_from_log(self):
         """

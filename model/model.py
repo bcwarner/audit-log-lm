@@ -63,7 +63,9 @@ class EHRAuditGPT2(GPT2LMHeadModel):
 
             seq_len = shift_logits.size(1)
             # Ensure that the sequence len does not go past the attention mask.
-            seq_len = min(seq_len, attention_mask.argmin(dim=1))
+            amin = attention_mask.argmin(dim=1)
+            if attention_mask[0, amin] == 0:
+                seq_len = min(seq_len, amin)
             total_lm_loss = 0
 
             # Iterate through each of the fields and compute the loss over each column.
@@ -83,6 +85,9 @@ class EHRAuditGPT2(GPT2LMHeadModel):
                 ):  # Ensure the lengths are the same.
                     col_ids.append(col_ids[-1] + len(field_names))
 
+                if len(col_ids_labels) < len(col_ids):
+                    col_ids_labels.append(col_ids_labels[-1] + len(field_names))
+
                 # Get the IDs of the logits for the current column.
                 global_ids_field = self.vocab.field_ids[field_name]
 
@@ -99,6 +104,12 @@ class EHRAuditGPT2(GPT2LMHeadModel):
                     lm_logits_field.view(-1, len(global_ids_field)),
                     lm_labels_local_field.view(-1),
                 )
+                if torch.isnan(lm_loss_field):
+                    print("=== NaN loss ===")
+                    print(lm_logits_field)
+                    print(lm_labels_local_field)
+                    print(lm_logits_field.view(-1, len(global_ids_field)))
+                    print(lm_labels_local_field.view(-1))
                 total_lm_loss += lm_loss_field
 
             # Append the loss to the end of the outputs.

@@ -49,8 +49,6 @@ if __name__ == "__main__":
 
     trainer = pl.Trainer(
         max_epochs=args.max_epochs,
-        accelerator="cpu",
-        devices=1,
     )
     pt_task = EHRAuditPretraining(model)
 
@@ -59,6 +57,13 @@ if __name__ == "__main__":
         datamodule=dm,
     )
 
+    # Save the model according to the HuggingFace API
+    print("Saving model to", os.path.join(path_prefix, config["pretrained_model_path"]))
+    pt_task.model.save_pretrained(
+        os.path.join(path_prefix, config["pretrained_model_path"])
+    )
+
+    print("Evaluating model")
     trainer.test(
         pt_task,
         datamodule=dm,
