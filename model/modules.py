@@ -22,25 +22,33 @@ class EHRAuditPretraining(pl.LightningModule):
         # Returns input and labels
         # Should maybe use data collation in the future.
         input_ids = batch
+        # Generate attention mask
+        pad_pos_count = self.model.config.n_positions - input_ids.shape[1]
+        attention_mask = torch.ones_like(input_ids)
+        attention_mask = torch.nn.functional.pad(
+            input=attention_mask,
+            pad=(0, pad_pos_count),
+            value=0,  # Off for rest
+        )
         # Pad to max length or crop to max length
         if input_ids.size(1) < self.model.config.n_positions:
             input_ids = torch.nn.functional.pad(
                 input=input_ids,
-                pad=(0, self.model.config.n_positions - input_ids.shape[1]),
-                value=0,
+                pad=(0, pad_pos_count),
+                value=0,  # EOS token
             )
         elif input_ids.size(1) > self.model.config.n_positions:
             input_ids = input_ids[:, : self.model.config.n_positions]
 
         labels = input_ids.clone().detach()
-        return input_ids, labels
+        return input_ids, labels, attention_mask
 
     def forward(self, input_ids, attention_mask=None, labels=None):
         return self.model(input_ids, attention_mask=attention_mask, labels=labels)
 
     def training_step(self, batch, batch_idx):
-        input_ids, labels = self.token_prep(batch)
-        outputs = self.model(input_ids, labels)
+        input_ids, labels, attention_mask = self.token_prep(batch)
+        outputs = self.model(input_ids, labels, attention_mask)
         loss = outputs[0]
         self.log(
             "train_loss",
@@ -53,8 +61,8 @@ class EHRAuditPretraining(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        input_ids, labels = self.token_prep(batch)
-        outputs = self.model(input_ids, labels)
+        input_ids, labels, attention_mask = self.token_prep(batch)
+        outputs = self.model(input_ids, labels, attention_mask)
         loss = outputs[0]
         self.log(
             "val_loss",
@@ -67,8 +75,8 @@ class EHRAuditPretraining(pl.LightningModule):
         return loss
 
     def test_step(self, batch, batch_idx):
-        input_ids, labels = self.token_prep(batch)
-        outputs = self.model(input_ids, labels)
+        input_ids, labels, attention_mask = self.token_prep(batch)
+        outputs = self.model(input_ids, labels, attention_mask)
         loss = outputs[0]
         self.log(
             "test_loss",

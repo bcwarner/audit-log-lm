@@ -62,6 +62,8 @@ class EHRAuditGPT2(GPT2LMHeadModel):
             shift_labels = labels[..., 1:].contiguous()
 
             seq_len = shift_logits.size(1)
+            # Ensure that the sequence len does not go past the attention mask.
+            seq_len = min(seq_len, attention_mask.argmin(dim=1))
             total_lm_loss = 0
 
             # Iterate through each of the fields and compute the loss over each column.
@@ -75,6 +77,12 @@ class EHRAuditGPT2(GPT2LMHeadModel):
                 col_ids_labels = list(range(field_idx - 1, seq_len, len(field_names)))
                 if field_idx == 0:
                     col_ids_labels = col_ids_labels[1:]
+
+                if len(col_ids) < len(
+                    col_ids_labels
+                ):  # Ensure the lengths are the same.
+                    col_ids.append(col_ids[-1] + len(field_names))
+
                 # Get the IDs of the logits for the current column.
                 global_ids_field = self.vocab.field_ids[field_name]
 

@@ -22,12 +22,9 @@ class EHRVocab:
         :param max_len: Maximum length of the input sequence.
         :param vocab_path: Where to save/load the vocab.
         """
-        if vocab_path is not None:
-            if os.path.exists(vocab_path):
-                with open(vocab_path, "rb") as f:
-                    self.__dict__.update(pickle.load(f))
-            else:
-                raise ValueError(f"Vocab path {vocab_path} does not exist.")
+        if vocab_path is not None and os.path.exists(vocab_path):
+            with open(vocab_path, "rb") as f:
+                self.__dict__.update(pickle.load(f))
         else:
             # Load the other vocab options from the config file.
             self.field_tokens = OrderedDict()
@@ -36,8 +33,8 @@ class EHRVocab:
 
             # Set the default vocab options for GPT-style models.
             self.special_tokens = {
-                "unk_token": "<unk>",
                 "eos_token": "<eos>",
+                "unk_token": "<unk>",
             }
 
             def new_token(field, value):
@@ -77,9 +74,8 @@ class EHRVocab:
 
     def global_to_token(self, global_id):
         if global_id not in self.global_tokens:
-            breakpoint()
-            return -100
-        return self.global_tokens[global_id][2] if global_id != -100 else -100
+            return 0
+        return self.global_tokens[global_id][2] if global_id != 0 else 0
 
     def globals_to_locals(self, global_ids: torch.Tensor):
         # Iterate over the elements of the tensor and convert them to local IDs.
@@ -105,9 +101,17 @@ if __name__ == "__main__":
     with open(os.path.join(os.path.pardir, "config.yaml")) as f:
         config = yaml.safe_load(f)
 
+    # Determine the path prefix
+    path_prefix = ""
+    for prefix in config["path_prefix"]:
+        if os.path.exists(prefix):
+            path_prefix = prefix
+            break
+
     # Erase the old vocab
-    if os.path.exists(config["vocab_path"]):
-        os.remove(config["vocab_path"])
+    vocab_path = os.path.join(path_prefix, config["vocab_path"])
+    if os.path.exists(vocab_path):
+        os.remove(vocab_path)
 
     # This is where we'll actually build the vocab and then save it.
     categorical_column_opts = dict()
@@ -132,13 +136,15 @@ if __name__ == "__main__":
     import pandas as pd
 
     # METRIC_NAME
-    df = pd.read_excel(config["metric_name_dict"]["file"], engine="openpyxl")
+    df = pd.read_excel(
+        os.path.join(path_prefix, config["metric_name_dict"]["file"]), engine="openpyxl"
+    )
     categorical_column_opts["METRIC_NAME"] = df[
         config["metric_name_dict"]["column"]
     ].tolist()
 
     # Create the vocab
-    vocab = EHRVocab(categorical_column_opts, vocab_path=config["vocab_path"])
+    vocab = EHRVocab(categorical_column_opts, vocab_path=vocab_path)
     vocab.save()
 
     # Print the vocab
