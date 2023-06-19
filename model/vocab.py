@@ -67,9 +67,15 @@ class EHRVocab:
             pickle.dump(self.__dict__, f)
 
     def field_to_token(self, field, value):
+        if value not in self.field_tokens[field]:
+            # There's a few of these, TODO: Analyze these.
+            return self.field_tokens["special"][self.unk_token]
         return self.field_tokens[field][value]
 
     def global_to_token(self, global_id):
+        if global_id not in self.global_tokens:
+            breakpoint()
+            return -100
         return self.global_tokens[global_id][2] if global_id != -100 else -100
 
     def globals_to_locals(self, global_ids: torch.Tensor):
@@ -102,7 +108,9 @@ if __name__ == "__main__":
 
     # Build the patient IDs
     categorical_column_opts["PAT_ID"] = [
-        str(i) for i in range(config["patient_id_max"])
+        # -1 = NaN
+        str(i)
+        for i in range(-1, config["patient_id_max"])
     ]
 
     # Time deltas
@@ -112,7 +120,7 @@ if __name__ == "__main__":
         config["timestamp_bins"]["bins"],
     )
 
-    categorical_column_opts["TIME_DELTA"] = [str(i) for i in range(len(bins))]
+    categorical_column_opts["ACCESS_TIME"] = [str(i) for i in range(len(bins))]
 
     # Segfault otherwise
     import pandas as pd

@@ -31,6 +31,8 @@ class EHRAuditDataset(Dataset):
         event_type_cols: List[str] = ["METRIC_NAME"],
         log_name: str = None,
         vocab: EHRVocab = None,
+        timestamp_spaces: List[float] = None,
+        should_tokenize: bool = True,
     ):
         self.seqs = []
         self.provider = os.path.basename(root_dir)
@@ -41,7 +43,12 @@ class EHRAuditDataset(Dataset):
         self.log_name = log_name
         self.root_dir = root_dir
         self.vocab = vocab
-        pass
+        self.timestamp_spaces = timestamp_spaces
+
+        if self.timestamp_spaces is None and self.should_tokenize is True:
+            raise ValueError("Tokenization depends on timestamp binning.")
+        self.should_tokenize = should_tokenize
+        self.load_from_log()
 
     def load_from_log(self):
         """
@@ -84,6 +91,38 @@ class EHRAuditDataset(Dataset):
 
         self.seqs = seqs
 
+        if self.timestamp_spaces is not None:
+            for s in self.seqs:
+                s.loc[:, self.timestamp_col] = s.loc[:, self.timestamp_col].apply(
+                    lambda x: np.digitize(np.log(x + 1), self.timestamp_spaces)
+                )
+
+        if self.should_tokenize:
+            tokenized_cols = [self.user_col, self.timestamp_col] + self.event_type_cols
+
+            tokenized_seqs = []
+            for s in self.seqs:  # Iterate each sequence
+                tokenized_example = []
+                for i, row in s.iterrows():  # Iterate each row
+                    tokenized_example.extend(
+                        [
+                            self.vocab.field_to_token(col, str(row[col]))
+                            for col in tokenized_cols
+                        ]
+                    )
+
+                # Add the end of sequence token.
+                tokenized_example.append(
+                    self.vocab.field_to_token("special", self.vocab.eos_token)
+                )
+
+                # Convert the sequence to a tensor.
+                tokenized_example = torch.tensor(tokenized_example)
+                tokenized_seqs.append(tokenized_example)
+
+            self.seqs = tokenized_seqs
+            return
+
     def __getitem__(self, item):
         if len(self.seqs) == 0:
             self.load_from_log()
@@ -93,89 +132,3 @@ class EHRAuditDataset(Dataset):
         if len(self.seqs) == 0:
             self.load_from_log()
         return len(self.seqs)
-
-
-class EHRAuditTimestampBin(object):
-    """
-    Set of transforms for the EHR audit log dataset.
-    Assumes input is a set of shifts that has already had time deltas calculated and each user ID is a unique integer.
-
-    Applies the following transforms:
-        - Logarithmically scale the time deltas
-    """
-
-    def __init__(
-        self,
-        timestamp_col: str,
-        timestamp_spaces: List[float],
-        **kwargs,
-    ):
-        self.timestamp_col = timestamp_col
-        self.timestamp_spaces = np.linspace(
-            timestamp_spaces[0], timestamp_spaces[1], timestamp_spaces[2]
-        )
-        pass
-
-    def __call__(self, ds):
-        # Logarithmically scale the time deltas and then bin.
-        # Based on (Padhi et al., 2021), but applies logarithmic binning.
-        for s in ds.seqs:
-            s.loc[:, self.timestamp_col] = ds.seqs.loc[:, self.timestamp_col].apply(
-                lambda x: np.digitize(np.log(x + 1), self.timestamp_spaces)
-            )
-
-        return ds
-
-
-class EHRAuditTokenize(object):
-    """
-    Tokenizes the EHR audit log dataset with a built vocabulary.
-
-        - Tokenize the event types
-        - Tokenize the time deltas
-        - Add the end of sequence token
-        - Pad the sequences to the maximum length
-        - Convert the sequences to tensors
-    """
-
-    def __init__(
-        self,
-        user_col: str,
-        event_type_cols: List[str],
-        timestamp_col: str,
-        vocab: EHRVocab,
-    ):
-        self.user_col = user_col
-        self.event_type_cols = event_type_cols
-        self.timestamp_col = timestamp_col
-        self.vocab = vocab
-        pass
-
-    def __call__(self, ds):
-        # Convert each shift/session to tokenized sequences.
-        tokenized_cols = [self.user_col, self.timestamp_col] + self.event_type_cols
-
-        tokenized_example = []
-        for s in ds.seqs:
-            for i, row in s.iterrows():
-                tokenized_example.extend(
-                    [self.vocab.field_to_token(col, row[col]) for col in tokenized_cols]
-                )
-
-        # Add the end of sequence token.
-        tokenized_example.append(
-            self.vocab.field_to_token("special", self.vocab.eos_token)
-        )
-
-        # Pad the sequence to the maximum length.
-        # TODO: Move this to the actual  model.
-        # max_len = self.vocab.max_len
-        # tokenized_example = tokenized_example[:max_len]
-        # tokenized_example = tokenized_example + [
-        #    self.vocab.special_tokens["pad_token"]
-        # ] * (max_len - len(tokenized_example))
-
-        # Convert the sequence to a tensor.
-        tokenized_example = torch.tensor(tokenized_example)
-
-        return tokenized_example

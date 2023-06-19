@@ -70,6 +70,9 @@ class EHRAuditGPT2(GPT2LMHeadModel):
             for field_idx, field_name in enumerate(field_names):
                 # Get the locations of the current colum in the input.
                 col_ids = list(range(field_idx, seq_len, len(field_names)))
+                label_ids = list(
+                    range(field_idx + len(field_names), seq_len, len(field_names))
+                )
 
                 # Get the IDs of the logits for the current column.
                 global_ids_field = self.vocab.field_ids[field_name]
@@ -78,7 +81,7 @@ class EHRAuditGPT2(GPT2LMHeadModel):
                 lm_logits_field = shift_logits[:, col_ids, :][:, :, global_ids_field]
 
                 # Select the relevant labels.
-                lm_labels_field = shift_labels[:, col_ids]
+                lm_labels_field = shift_labels[:, label_ids]
                 lm_labels_local_field = self.vocab.globals_to_locals(lm_labels_field)
 
                 # Compute the loss for the current column.
@@ -87,8 +90,6 @@ class EHRAuditGPT2(GPT2LMHeadModel):
                     lm_logits_field.view(-1, len(global_ids_field)),
                     lm_labels_local_field.view(-1),
                 )
-                if torch.isnan(lm_loss_field):
-                    breakpoint()
                 total_lm_loss += lm_loss_field
 
             # Append the loss to the end of the outputs.

@@ -42,6 +42,8 @@ model = models[args.model](model_configs[args.model], vocab)
 
 trainer = pl.Trainer(
     max_epochs=args.max_epochs,
+    accelerator="cpu",
+    devices=1,
 )
 pt_task = EHRAuditPretraining(model)
 
