@@ -209,10 +209,16 @@ class EHRAuditDataModule(pl.LightningDataModule):
         )
 
     def train_dataloader(self):
-        return torch.utils.data.DataLoader(self.train_dataset, num_workers=0)
+        return torch.utils.data.DataLoader(
+            self.train_dataset, num_workers=self.num_workers
+        )
 
     def val_dataloader(self):
-        return torch.utils.data.DataLoader(self.val_dataset, num_workers=0)
+        return torch.utils.data.DataLoader(
+            self.val_dataset, num_workers=self.num_workers
+        )
 
     def test_dataloader(self):
-        return torch.utils.data.DataLoader(self.test_dataset, num_workers=0)
+        return torch.utils.data.DataLoader(
+            self.test_dataset, num_workers=self.num_workers
+        )

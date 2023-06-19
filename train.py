@@ -49,6 +49,10 @@ if __name__ == "__main__":
 
     trainer = pl.Trainer(
         max_epochs=args.max_epochs,
+        logger=pl.loggers.TensorBoardLogger(
+            save_dir=os.path.join(path_prefix, config["log_path"]),
+            name="pretraining",
+        ),
     )
     pt_task = EHRAuditPretraining(model)
 
