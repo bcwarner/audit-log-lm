@@ -93,10 +93,12 @@ class EHRAuditDataModule(pl.LightningDataModule):
     def __init__(
         self,
         yaml_config_path: str,
+        vocab: EHRVocab,
     ):
         super().__init__()
         with open(yaml_config_path) as f:
             self.config = yaml.safe_load(f)
+        self.vocab = vocab
 
     def prepare_data(self):
         # Cannot set state here.
@@ -104,11 +106,17 @@ class EHRAuditDataModule(pl.LightningDataModule):
 
     def setup(self, stage=None):
         # Load the data from the audit log directory.
-        data_path = self.config["audit_log_path"]
+
+        # Itereate through each prefix and determine which one exists, then choose that one.
+        path_prefix = ""
+        for prefix in self.config["path_prefix"]:
+            if os.path.exists(prefix):
+                path_prefix = prefix
+                break
+
+        data_path = os.path.join(path_prefix, self.config["audit_log_path"])
         log_name = self.config["audit_log_file"]
         sep_min = self.config["sep_min"]
-
-        self.vocab = EHRVocab(vocab_path=self.config["vocab_path"])
 
         # Load the datasets
         data = []

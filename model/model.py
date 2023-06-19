@@ -58,7 +58,6 @@ class EHRAuditGPT2(GPT2LMHeadModel):
         if labels is not None:
             # Shift so that tokens < n predict n
             # We don't need to remove the special labels here as they are not included here.
-
             shift_logits = lm_logits[..., :-1, :].contiguous()
             shift_labels = labels[..., 1:].contiguous()
 
@@ -66,14 +65,16 @@ class EHRAuditGPT2(GPT2LMHeadModel):
             total_lm_loss = 0
 
             # Iterate through each of the fields and compute the loss over each column.
-            field_names = self.vocab.field_names()
+            # Exclude the special tokens.
+            field_names = self.vocab.field_names(include_special=False)
             for field_idx, field_name in enumerate(field_names):
-                # Get the locations of the current colum in the input.
+                # Get the locations of the current column in the input.
                 col_ids = list(range(field_idx, seq_len, len(field_names)))
-                label_ids = list(
-                    range(field_idx + len(field_names), seq_len, len(field_names))
-                )
 
+                # Get the locations of the current column in the labels.
+                col_ids_labels = list(range(field_idx - 1, seq_len, len(field_names)))
+                if field_idx == 0:
+                    col_ids_labels = col_ids_labels[1:]
                 # Get the IDs of the logits for the current column.
                 global_ids_field = self.vocab.field_ids[field_name]
 
@@ -81,7 +82,7 @@ class EHRAuditGPT2(GPT2LMHeadModel):
                 lm_logits_field = shift_logits[:, col_ids, :][:, :, global_ids_field]
 
                 # Select the relevant labels.
-                lm_labels_field = shift_labels[:, label_ids]
+                lm_labels_field = shift_labels[:, col_ids_labels]
                 lm_labels_local_field = self.vocab.globals_to_locals(lm_labels_field)
 
                 # Compute the loss for the current column.

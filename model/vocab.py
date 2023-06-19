@@ -22,9 +22,12 @@ class EHRVocab:
         :param max_len: Maximum length of the input sequence.
         :param vocab_path: Where to save/load the vocab.
         """
-        if vocab_path is not None and os.path.exists(vocab_path):
-            with open(vocab_path, "rb") as f:
-                self.__dict__.update(pickle.load(f))
+        if vocab_path is not None:
+            if os.path.exists(vocab_path):
+                with open(vocab_path, "rb") as f:
+                    self.__dict__.update(pickle.load(f))
+            else:
+                raise ValueError(f"Vocab path {vocab_path} does not exist.")
         else:
             # Load the other vocab options from the config file.
             self.field_tokens = OrderedDict()
@@ -87,8 +90,11 @@ class EHRVocab:
 
         return local_ids
 
-    def field_names(self):
-        return list(self.field_tokens.keys())
+    def field_names(self, include_special=False):
+        l = list(self.field_tokens.keys())
+        if not include_special:
+            l.remove("special")
+        return l
 
     def __len__(self):
         return len(self.global_tokens)
