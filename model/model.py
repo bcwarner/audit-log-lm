@@ -62,10 +62,7 @@ class EHRAuditGPT2(GPT2LMHeadModel):
             shift_labels = labels[..., 1:].contiguous()
 
             seq_len = shift_logits.size(1)
-            # Ensure that the sequence len does not go past the attention mask.
-            amin = attention_mask.argmin(dim=1)
-            if attention_mask[0, amin] == 0:
-                seq_len = min(seq_len, amin)
+            # Ensure that the sequence len does not go past the attention mask for each batch
             total_lm_loss = 0
 
             # Iterate through each of the fields and compute the loss over each column.
@@ -104,12 +101,6 @@ class EHRAuditGPT2(GPT2LMHeadModel):
                     lm_logits_field.view(-1, len(global_ids_field)),
                     lm_labels_local_field.view(-1),
                 )
-                if torch.isnan(lm_loss_field):
-                    print("=== NaN loss ===")
-                    print(lm_logits_field)
-                    print(lm_labels_local_field)
-                    print(lm_logits_field.view(-1, len(global_ids_field)))
-                    print(lm_labels_local_field.view(-1))
                 total_lm_loss += lm_loss_field
 
             # Append the loss to the end of the outputs.

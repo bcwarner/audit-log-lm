@@ -30,7 +30,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Get the path of the data from config
-    with open(os.path.join(os.path.dirname(__file__), "..", "config.yaml"), "r") as f:
+    with open(
+        os.path.normpath(
+            os.path.join(os.path.dirname(__file__), "..", "config.yaml"), "r"
+        )
+    ) as f:
         config = yaml.safe_load(f)
     data_path = config["audit_log_path"]
     log_name = config["audit_log_file"]
@@ -41,19 +45,17 @@ if __name__ == "__main__":
     datasets = []
     if args.provider is None:
         for provider in os.listdir(data_path):
-            prov_path = os.path.join(data_path, provider)
+            prov_path = os.path.normpath(os.path.join(data_path, provider))
             # Check the file is not empty and exists, there's a couple of these.
-            log_path = os.path.join(prov_path, log_name)
+            log_path = os.path.normpath(os.path.join(prov_path, log_name))
             if not os.path.exists(log_path) or os.path.getsize(log_path) == 0:
                 continue
             datasets.append(
-                EHRAuditDataset(prov_path, shift_sep_hr=sep_min, log_name=log_name)
+                EHRAuditDataset(prov_path, sep_min=sep_min, log_name=log_name)
             )
     else:
-        prov_path = os.path.join(data_path, args.provider)
-        datasets.append(
-            EHRAuditDataset(prov_path, shift_sep_hr=sep_min, log_name=log_name)
-        )
+        prov_path = os.path.normpath(os.path.join(data_path, args.provider))
+        datasets.append(EHRAuditDataset(prov_path, sep_min=sep_min, log_name=log_name))
 
     # Relevant columns
     patient_col = datasets[0].user_col
@@ -111,9 +113,13 @@ if __name__ == "__main__":
     print(tabulate(summary_stats.items(), tablefmt="pretty"))
 
     # Save the LaTeX table and a tsv.
-    with open(os.path.join(results_path, "dataset_characteristics.tex"), "w") as f:
+    with open(
+        os.path.normpath(os.path.join(results_path, "dataset_characteristics.tex")), "w"
+    ) as f:
         f.write(tabulate(summary_stats.items(), tablefmt="latex"))
-    with open(os.path.join(results_path, "dataset_characteristics.tsv"), "w") as f:
+    with open(
+        os.path.normpath(os.path.join(results_path, "dataset_characteristics.tsv")), "w"
+    ) as f:
         f.write(tabulate(summary_stats.items(), tablefmt="tsv"))
 
     def histogram(data, title, xlabel, ylabel, filename, semilog=False):
@@ -130,8 +136,10 @@ if __name__ == "__main__":
         plt.title(title)
         plt.ylabel(ylabel)
         plt.show()
-        plt.savefig(os.path.join(results_path, filename + ".png"))
-        tikzplotlib.save(os.path.join(results_path, filename + ".tex"))
+        plt.savefig(os.path.normpath(os.path.join(results_path, filename + ".png")))
+        tikzplotlib.save(
+            os.path.normpath(os.path.join(results_path, filename + ".tex"))
+        )
 
     # Plot the distribution of time deltas.
     histogram(

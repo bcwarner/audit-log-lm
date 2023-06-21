@@ -3,12 +3,16 @@ import argparse
 import os
 
 import lightning.pytorch as pl
+import torch
 import yaml
+from lightning.pytorch.tuner import Tuner
 from transformers import GPT2Config, RwkvConfig
 
 from model.model import EHRAuditGPT2, EHRAuditRWKV
 from model.modules import EHRAuditPretraining, EHRAuditDataModule
 from model.vocab import EHRVocab
+
+__spec__ = None
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -16,12 +20,17 @@ if __name__ == "__main__":
         "--model", type=str, default="gpt2", help="Model to use for pretraining."
     )
     parser.add_argument(
-        "--max_epochs", type=int, default=10, help="Number of epochs to pretrain for."
+        "--max_epochs", type=int, default=5, help="Number of epochs to pretrain for."
+    )
+    parser.add_argument(
+        "--batch_size", type=int, default=2, help="Batch size to use for pretraining."
     )
     args = parser.parse_args()
 
     # Load configuration and vocab
-    config_path = os.path.join(os.path.dirname(__file__), "config.yaml")
+    config_path = os.path.normpath(
+        os.path.join(os.path.dirname(__file__), "config.yaml")
+    )
     with open(config_path, "r") as f:
         config = yaml.safe_load(f)
 
@@ -31,9 +40,9 @@ if __name__ == "__main__":
             path_prefix = prefix
             break
 
-    vocab = EHRVocab(vocab_path=os.path.join(path_prefix, config["vocab_path"]))
-    dm = EHRAuditDataModule(config_path, vocab=vocab)
-
+    vocab = EHRVocab(
+        vocab_path=os.path.normpath(os.path.join(path_prefix, config["vocab_path"]))
+    )
     models = {
         "gpt2": EHRAuditGPT2,
     }
@@ -45,16 +54,29 @@ if __name__ == "__main__":
             n_layer=6,
         ),
     }
+
+    dm = EHRAuditDataModule(
+        config_path,
+        vocab=vocab,
+        batch_size=args.batch_size,
+    )
+
     model = models[args.model](model_configs[args.model], vocab)
 
     trainer = pl.Trainer(
         max_epochs=args.max_epochs,
         logger=pl.loggers.TensorBoardLogger(
-            save_dir=os.path.join(path_prefix, config["log_path"]),
+            save_dir=os.path.normpath(os.path.join(path_prefix, config["log_path"])),
             name="pretraining",
         ),
+        devices=1 if os.name == "nt" else -1,
+        accumulate_grad_batches=1024,
     )
+
     pt_task = EHRAuditPretraining(model)
+    # if args.strategy != "ddp":
+    # tuner = Tuner(trainer)
+    # tuner.scale_batch_size(pt_task, datamodule=dm)
 
     trainer.fit(
         pt_task,
@@ -68,13 +90,12 @@ if __name__ == "__main__":
     # Save the model according to the HuggingFace API
     if path_prefix == "/storage1/":
         # Second safeguard against overwriting a model.
-        print(
-            "Saving model to",
-            os.path.join(path_prefix, config["pretrained_model_path"]),
+        param_count = sum(p.numel() for p in pt_task.model.parameters()) / 1e6
+        param_name = f"{args.model}/{param_count:.1f}M".replace(".", "_")
+        fname = os.path.normpath(
+            os.path.join(path_prefix, config["pretrained_model_path"], param_name)
         )
-        pt_task.model.save_pretrained(
-            os.path.join(path_prefix, config["pretrained_model_path"])
-        )
+        pt_task.model.save_pretrained(fname)
 
     print("Evaluating model")
     trainer.test(

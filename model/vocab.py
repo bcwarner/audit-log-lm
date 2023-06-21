@@ -98,7 +98,7 @@ class EHRVocab:
 
 if __name__ == "__main__":
     # Load the config
-    with open(os.path.join(os.path.pardir, "config.yaml")) as f:
+    with open(os.path.normpath(os.path.join(os.path.pardir, "config.yaml"))) as f:
         config = yaml.safe_load(f)
 
     # Determine the path prefix
@@ -109,7 +109,7 @@ if __name__ == "__main__":
             break
 
     # Erase the old vocab
-    vocab_path = os.path.join(path_prefix, config["vocab_path"])
+    vocab_path = os.path.normpath(os.path.join(path_prefix, config["vocab_path"]))
     if os.path.exists(vocab_path):
         os.remove(vocab_path)
 
@@ -137,7 +137,8 @@ if __name__ == "__main__":
 
     # METRIC_NAME
     df = pd.read_excel(
-        os.path.join(path_prefix, config["metric_name_dict"]["file"]), engine="openpyxl"
+        os.path.normpath(os.path.join(path_prefix, config["metric_name_dict"]["file"])),
+        engine="openpyxl",
     )
     categorical_column_opts["METRIC_NAME"] = df[
         config["metric_name_dict"]["column"]

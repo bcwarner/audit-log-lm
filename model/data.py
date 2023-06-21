@@ -58,7 +58,7 @@ class EHRAuditDataset(IterableDataset):
         Load the dataset from either a log file or a cache.
         """
         if self.cache is not None and os.path.exists(
-            os.path.join(self.root_dir, self.cache)
+            os.path.normpath(os.path.join(self.root_dir, self.cache))
         ):
             self.load_from_cache()
         else:
@@ -69,7 +69,7 @@ class EHRAuditDataset(IterableDataset):
         Load the dataset from a log file.
         """
         print(f"Loading {self.provider} from {self.log_name}")
-        path = os.path.join(self.root_dir, self.log_name)
+        path = os.path.normpath(os.path.join(self.root_dir, self.log_name))
         df = pd.read_csv(path)
 
         # Delete all columns not included
@@ -141,45 +141,57 @@ class EHRAuditDataset(IterableDataset):
 
         if self.cache is not None:
             # Save the metadata (length) of the dataset, as well as the tensorized sequence.
-            cache_path = os.path.join(self.root_dir, self.cache)
+            cache_path = os.path.normpath(os.path.join(self.root_dir, self.cache))
             if not os.path.exists(cache_path):
                 os.makedirs(cache_path)
 
-            with open(os.path.join(cache_path, "length.pkl"), "wb") as f:
+            with open(
+                os.path.normpath(os.path.join(cache_path, "length.pkl")), "wb"
+            ) as f:
                 pickle.dump(self.len, f)
 
-            torch.save(self.seqs, os.path.join(cache_path, "seqs.pt"))
+            torch.save(self.seqs, os.path.normpath(os.path.join(cache_path, "seqs.pt")))
 
     def load_from_cache(self, length=True, seqs=False):
         """
         Load the dataset from a cached file.
         Deliberately only load parts as needed.
         """
-        cache_path = os.path.join(self.root_dir, self.cache)
+        cache_path = os.path.normpath(os.path.join(self.root_dir, self.cache))
         if not os.path.exists(cache_path):
             raise ValueError("Cache does not exist.")
 
         if length:
-            with open(os.path.join(cache_path, "length.pkl"), "rb") as f:
+            with open(
+                os.path.normpath(os.path.join(cache_path, "length.pkl")), "rb"
+            ) as f:
                 try:
                     self.len = pickle.load(f)
                 except EOFError:
                     self.len = 0  # Maybe a better way to handle this?
 
         if seqs:
-            self.seqs = torch.load(os.path.join(cache_path, "seqs.pt"))
+            self.seqs = torch.load(
+                os.path.normpath(os.path.join(cache_path, "seqs.pt"))
+            )
 
     def __getitem__(self, item):
-        if self.seqs == [] and os.path.exists(os.path.join(self.root_dir, self.cache)):
+        if self.seqs == [] and os.path.exists(
+            os.path.normpath(os.path.join(self.root_dir, self.cache))
+        ):
             self.load_from_cache(seqs=True)
         return self.seqs[item]
 
     def __len__(self):
-        if self.len is None and os.path.exists(os.path.join(self.root_dir, self.cache)):
+        if self.len is None and os.path.exists(
+            os.path.normpath(os.path.join(self.root_dir, self.cache))
+        ):
             self.load_from_cache(length=True)
         return self.len  # Returns None if not cached or loaded.
 
     def __iter__(self):
-        if self.seqs == [] and os.path.exists(os.path.join(self.root_dir, self.cache)):
+        if self.seqs == [] and os.path.exists(
+            os.path.normpath(os.path.join(self.root_dir, self.cache))
+        ):
             self.load_from_cache(length=True, seqs=True)
         return iter(self.seqs)
