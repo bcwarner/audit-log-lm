@@ -80,9 +80,11 @@ class EHRVocab:
     def globals_to_locals(self, global_ids: torch.Tensor):
         # Iterate over the elements of the tensor and convert them to local IDs.
         local_ids = torch.zeros_like(global_ids)
-        for i in range(global_ids.shape[0]):  # Batch
-            for j in range(global_ids.shape[1]):  # Element
-                local_ids[i, j] = self.global_to_token(global_ids[i, j].item())
+        # Copy global_ids to cpu
+        global_ids_cpu = global_ids
+        for i in range(global_ids_cpu.shape[0]):  # Batch
+            for j in range(global_ids_cpu.shape[1]):  # Element
+                local_ids[i, j] = self.global_to_token(global_ids_cpu[i, j].item())
 
         return local_ids
 

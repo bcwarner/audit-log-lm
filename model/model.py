@@ -19,6 +19,39 @@ class EHRAuditGPT2(GPT2LMHeadModel):
         super().__init__(config)
         self.config = config
         self.vocab = vocab
+        self.seq_len = config.n_positions
+
+        # Pre-compute important details.
+        # Field positions
+        field_names = self.vocab.field_names(include_special=False)
+        self.field_ct = len(field_names)
+        self.col_ids = [list()] * self.field_ct
+        self.col_ids_labels = [list()] * self.field_ct
+        self.global_ids_field = [list()] * self.field_ct
+        for field_idx, field_name in enumerate(field_names):
+            self.col_ids[field_idx] = list(
+                range(field_idx, self.seq_len, len(field_names))
+            )
+            self.col_ids_labels[field_idx] = list(
+                range(field_idx - 1, self.seq_len, len(field_names))
+            )
+            if field_idx == 0:
+                self.col_ids_labels[field_idx] = self.col_ids_labels[field_idx][1:]
+
+            self.global_ids_field[field_idx] = self.vocab.field_ids[field_name]
+
+            # Is this necessary?
+            if len(self.col_ids[field_idx]) < len(
+                self.col_ids_labels[field_idx]
+            ):  # Ensure the lengths are the same.
+                self.col_ids[field_idx].append(
+                    self.col_ids[field_idx][-1] + self.field_ct
+                )
+
+            if len(self.col_ids_labels[field_idx]) < len(self.col_ids[field_idx]):
+                self.col_ids_labels[field_idx].append(
+                    self.col_ids_labels[field_idx][-1] + self.field_ct
+                )
 
     def forward(
         self,
@@ -61,38 +94,27 @@ class EHRAuditGPT2(GPT2LMHeadModel):
             shift_logits = lm_logits[..., :-1, :].contiguous()
             shift_labels = labels[..., 1:].contiguous()
 
-            seq_len = shift_logits.size(1)
             # Ensure that the sequence len does not go past the attention mask for each batch
             total_lm_loss = 0
 
             # Iterate through each of the fields and compute the loss over each column.
             # Exclude the special tokens.
-            field_names = self.vocab.field_names(include_special=False)
-            for field_idx, field_name in enumerate(field_names):
+            for field_idx in range(self.field_ct):
                 # Get the locations of the current column in the input.
-                col_ids = list(range(field_idx, seq_len, len(field_names)))
+                col_ids = self.col_ids[field_idx]
 
                 # Get the locations of the current column in the labels.
-                col_ids_labels = list(range(field_idx - 1, seq_len, len(field_names)))
-                if field_idx == 0:
-                    col_ids_labels = col_ids_labels[1:]
-
-                if len(col_ids) < len(
-                    col_ids_labels
-                ):  # Ensure the lengths are the same.
-                    col_ids.append(col_ids[-1] + len(field_names))
-
-                if len(col_ids_labels) < len(col_ids):
-                    col_ids_labels.append(col_ids_labels[-1] + len(field_names))
+                col_ids_labels = self.col_ids_labels[field_idx]
 
                 # Get the IDs of the logits for the current column.
-                global_ids_field = self.vocab.field_ids[field_name]
+                global_ids_field = self.global_ids_field[field_idx]
 
                 # Select the relevant logits.
                 lm_logits_field = shift_logits[:, col_ids, :][:, :, global_ids_field]
 
                 # Select the relevant labels.
                 lm_labels_field = shift_labels[:, col_ids_labels]
+                # TODO: Speed this up
                 lm_labels_local_field = self.vocab.globals_to_locals(lm_labels_field)
 
                 # Compute the loss for the current column.
