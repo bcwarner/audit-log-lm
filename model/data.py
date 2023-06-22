@@ -47,10 +47,10 @@ class EHRAuditDataset(IterableDataset):
         self.root_dir = root_dir
         self.vocab = vocab
         self.timestamp_spaces = timestamp_spaces
+        self.should_tokenize = should_tokenize
 
         if self.timestamp_spaces is None and self.should_tokenize is True:
             raise ValueError("Tokenization depends on timestamp binning.")
-        self.should_tokenize = should_tokenize
         self.cache = cache
 
     def load(self):

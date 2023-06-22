@@ -26,16 +26,21 @@ if __name__ == "__main__":
     parser.add_argument(
         "--provider", type=str, default=None, help="The provider to analyze."
     )
-
     args = parser.parse_args()
 
     # Get the path of the data from config
     with open(
-        os.path.normpath(
-            os.path.join(os.path.dirname(__file__), "..", "config.yaml"), "r"
-        )
+        os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "config.yaml")),
+        "r",
     ) as f:
         config = yaml.safe_load(f)
+
+    path_prefix = ""
+    for prefix in config["path_prefix"]:
+        if os.path.exists(prefix):
+            path_prefix = prefix
+            break
+
     data_path = config["audit_log_path"]
     log_name = config["audit_log_file"]
     sep_min = config["sep_min"]
@@ -51,11 +56,25 @@ if __name__ == "__main__":
             if not os.path.exists(log_path) or os.path.getsize(log_path) == 0:
                 continue
             datasets.append(
-                EHRAuditDataset(prov_path, sep_min=sep_min, log_name=log_name)
+                EHRAuditDataset(
+                    prov_path,
+                    sep_min=sep_min,
+                    log_name=log_name,
+                    should_tokenize=False,
+                    timestamp_spaces=[],
+                )
             )
     else:
         prov_path = os.path.normpath(os.path.join(data_path, args.provider))
-        datasets.append(EHRAuditDataset(prov_path, sep_min=sep_min, log_name=log_name))
+        datasets.append(
+            EHRAuditDataset(
+                prov_path,
+                sep_min=sep_min,
+                log_name=log_name,
+                should_tokenize=False,
+                timestamp_spaces=[],
+            )
+        )
 
     # Relevant columns
     patient_col = datasets[0].user_col
@@ -72,18 +91,15 @@ if __name__ == "__main__":
 
         print(f"Summarizing {dataset.provider}")
         statistics = defaultdict(list)
-        for shift in dataset:
+        for session in dataset:
             # Calculate the number of sessions (i.e. gaps of 5 or more minutes)
-            statistics["Sessions"].append(len(shift[shift[time_col] > 5 * 60]) + 1)
-            statistics["Patients"].append(shift[patient_col].nunique())
-            statistics["Events"].append(len(shift))
-            statistics["Events/Session"].append(
-                statistics["Events"][-1] / statistics["Sessions"][-1]
-            )
-            statistics["Mean Time Delta"].append(shift[time_col].mean())
-            statistics["Min Time Delta"].append(shift[time_col].min())
-            statistics["Max Time Delta"].append(shift[time_col].max())
-            statistics["Std Time Delta"].append(shift[time_col].std())
+            statistics["Sessions"].append(len(session))
+            statistics["Patients"].append(session[patient_col].nunique())
+            statistics["Events"].append(len(session))
+            statistics["Mean Time Delta"].append(session[time_col].mean())
+            statistics["Min Time Delta"].append(session[time_col].min())
+            statistics["Max Time Delta"].append(session[time_col].max())
+            statistics["Std Time Delta"].append(session[time_col].std())
         return statistics
 
     # Summarize each provider in parallel.
@@ -144,7 +160,7 @@ if __name__ == "__main__":
     # Plot the distribution of time deltas.
     histogram(
         statistics["Mean Time Delta"],
-        f"Mean Time Delta/Shift (n={len(statistics['Mean Time Delta'])})",
+        f"Mean Time Delta/Session (n={len(statistics['Mean Time Delta'])})",
         "Mean Time Delta (s)",
         "Frequency",
         "mean_time_delta",
@@ -153,7 +169,7 @@ if __name__ == "__main__":
 
     histogram(
         statistics["Patients"],
-        f"Number of Patients/Shift (n={len(statistics['Patients'])})",
+        f"Number of Patients/Session (n={len(statistics['Patients'])})",
         "Number of Patients",
         "Frequency",
         "num_patients",
@@ -161,18 +177,9 @@ if __name__ == "__main__":
     )
 
     histogram(
-        statistics["Events/Session"],
-        f"Number of Events/Session (n={len(statistics['Events/Session'])})",
-        "Number of Events/Session",
-        "Frequency",
-        "num_events_session",
-        semilog=True,
-    )
-
-    histogram(
         statistics["Events"],
-        f"Number of Events/Shift (n={len(statistics['Events'])})",
-        "Number of Events/Shift",
+        f"Number of Events/Session (n={len(statistics['Events'])})",
+        "Number of Events/Session",
         "Frequency",
         "num_events",
         semilog=True,

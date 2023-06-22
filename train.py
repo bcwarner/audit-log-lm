@@ -83,8 +83,8 @@ if __name__ == "__main__":
         datamodule=dm,
     )
 
-    if trainer.interrupted:
-        # Don't save the model if it was interrupted.
+    if trainer.interrupted and trainer.current_epoch == 0:
+        # Allow for model saves if we did past one epoch.
         exit(0)
 
     # Save the model according to the HuggingFace API
