@@ -83,10 +83,10 @@ if __name__ == "__main__":
             save_dir=os.path.normpath(os.path.join(path_prefix, config["log_path"])),
             name="pretraining",
         ),
-        devices=1 if os.name == "nt" else -1,
-        accumulate_grad_batches=1024,
+        accumulate_grad_batches=64,
         profiler=profiler,
         limit_train_batches=100 if args.profile else None,
+        limit_val_batches=100 if args.profile else None,
     )
 
     pt_task = EHRAuditPretraining(model)

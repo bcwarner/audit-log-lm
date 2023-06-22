@@ -93,7 +93,10 @@ class EHRAuditGPT2(GPT2LMHeadModel):
 
                 # Select the relevant labels.
                 lm_labels_field = shift_labels[:, col_ids_labels]
-                lm_labels_local_field = self.vocab.globals_to_locals(lm_labels_field)
+                # breakpoint()
+                lm_labels_local_field = self.vocab.globals_to_locals_torch(
+                    lm_labels_field, self.vocab.field_ids[field_name][0]
+                )
 
                 # Compute the loss for the current column.
                 loss_fct = torch.nn.CrossEntropyLoss()
