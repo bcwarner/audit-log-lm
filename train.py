@@ -5,6 +5,7 @@ import os
 import lightning.pytorch as pl
 import torch
 import yaml
+from lightning.pytorch.profilers import PyTorchProfiler
 from lightning.pytorch.tuner import Tuner
 from transformers import GPT2Config, RwkvConfig
 
@@ -24,6 +25,11 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--batch_size", type=int, default=2, help="Batch size to use for pretraining."
+    )
+    parser.add_argument(
+        "--profile",
+        action="store_true",
+        help="Whether to profile the training process.",
     )
     args = parser.parse_args()
 
@@ -63,6 +69,14 @@ if __name__ == "__main__":
 
     model = models[args.model](model_configs[args.model], vocab)
 
+    profiler = None
+    if args.profile:
+        profiler = PyTorchProfiler(
+            sort_by_key="cpu_time",
+            dirpath=os.path.normpath(os.path.join(path_prefix, config["log_path"])),
+            filename="pt_profile",
+        )
+
     trainer = pl.Trainer(
         max_epochs=args.max_epochs,
         logger=pl.loggers.TensorBoardLogger(
@@ -71,6 +85,8 @@ if __name__ == "__main__":
         ),
         devices=1 if os.name == "nt" else -1,
         accumulate_grad_batches=1024,
+        profiler=profiler,
+        limit_train_batches=100 if args.profile else None,
     )
 
     pt_task = EHRAuditPretraining(model)
@@ -88,7 +104,7 @@ if __name__ == "__main__":
         exit(0)
 
     # Save the model according to the HuggingFace API
-    if path_prefix == "/storage1/":
+    if path_prefix == "/storage1/" and not args.profile:
         # Second safeguard against overwriting a model.
         param_count = sum(p.numel() for p in pt_task.model.parameters()) / 1e6
         param_name = f"{args.model}/{param_count:.1f}M".replace(".", "_")
