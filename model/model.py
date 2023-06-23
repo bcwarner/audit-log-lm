@@ -20,13 +20,15 @@ class EHRAuditGPT2(GPT2LMHeadModel):
         self.config = config
         self.vocab = vocab
         self.seq_len = config.n_positions - 1
+        self.loss = torch.nn.CrossEntropyLoss(ignore_index=-100)
 
         field_names = self.vocab.field_names(include_special=False)
         self.field_ct = len(field_names)
         self.col_ids = list(range(self.field_ct))
         self.col_ids_labels = list(range(self.field_ct))
-        self.global_ids_field = list(range(self.field_ct))
-        self.field_start = list(range(self.field_ct))
+        self.global_ids_min = list(range(self.field_ct))
+        self.global_ids_max = list(range(self.field_ct))
+        self.global_ids_len = list(range(self.field_ct))
         for field_idx, field_name in enumerate(field_names):
             self.col_ids[field_idx] = list(
                 range(field_idx, self.seq_len, len(field_names))
@@ -49,16 +51,16 @@ class EHRAuditGPT2(GPT2LMHeadModel):
                     self.col_ids_labels[field_idx][-1] + len(field_names)
                 )
 
-            self.global_ids_field[field_idx] = self.vocab.field_ids[field_name]
-            self.field_start[field_idx] = self.vocab.field_ids[field_name][0]
+            self.global_ids_min[field_idx] = self.vocab.field_ids[field_name][0]
+            self.global_ids_max[field_idx] = self.vocab.field_ids[field_name][-1] + 1
+            self.global_ids_len[field_idx] = len(self.vocab.field_ids[field_name])
 
         # Tensorize the above fields.
         self.col_ids = torch.tensor(self.col_ids, dtype=torch.long)
         self.col_ids_labels = torch.tensor(self.col_ids_labels, dtype=torch.long)
-        self.global_ids_field = [
-            torch.tensor(x, dtype=torch.long) for x in self.global_ids_field
-        ]
-        self.field_start = torch.tensor(self.field_start, dtype=torch.long)
+        self.global_ids_min = torch.tensor(self.global_ids_min, dtype=torch.long)
+        self.global_ids_max = torch.tensor(self.global_ids_max, dtype=torch.long)
+        self.global_ids_len = torch.tensor(self.global_ids_len, dtype=torch.long)
 
     def forward(
         self,
@@ -98,10 +100,9 @@ class EHRAuditGPT2(GPT2LMHeadModel):
         if labels is not None:
             # Shift so that tokens < n predict n
             # We don't need to remove the special labels here as they are not included here.
-            shift_logits = lm_logits[..., :-1, :].contiguous()
-            shift_labels = labels[..., 1:].contiguous()
+            shift_logits = lm_logits[..., :-1, :]  # .contiguous()
+            shift_labels = labels[..., 1:]  # .contiguous()
 
-            seq_len = shift_logits.size(1)
             # Ensure that the sequence len does not go past the attention mask for each batch
             total_lm_loss = 0
 
@@ -114,34 +115,30 @@ class EHRAuditGPT2(GPT2LMHeadModel):
 
                 # Get the locations of the current column in the labels.
                 col_ids_labels = self.col_ids_labels[field_idx]
-                # if field_idx == 0:
-                #    col_ids_labels = col_ids_labels[1:]
-
-                # if len(col_ids) < len(
-                #    col_ids_labels
-                # ):  # Ensure the lengths are the same.
-                #    col_ids.append(col_ids[-1] + len(field_names))
-
-                # if len(col_ids_labels) < len(col_ids):
-                #    col_ids_labels.append(col_ids_labels[-1] + len(field_names))
 
                 # Get the IDs of the logits for the current column.
-                global_ids_field = self.global_ids_field[field_idx]
+                global_ids_min = self.global_ids_min[field_idx]
+                global_ids_max = self.global_ids_max[field_idx]
+                global_ids_len = self.global_ids_len[field_idx]
 
                 # Select the relevant logits.
-                lm_logits_field = shift_logits[:, col_ids, :][:, :, global_ids_field]
+                lm_logits_field = shift_logits[
+                    :, col_ids, global_ids_min:global_ids_max
+                ]
 
                 # Select the relevant labels.
                 lm_labels_field = shift_labels[:, col_ids_labels]
-                # breakpoint()
-                lm_labels_local_field = self.vocab.globals_to_locals_torch(
-                    lm_labels_field, self.field_start[field_idx]
+                lm_labels_local_field = torch.clamp(
+                    torch.sub(lm_labels_field, global_ids_min - 1), min=0
                 )
 
+                # self.vocab.globals_to_locals_torch(
+                # lm_labels_field, self.field_start[field_idx]
+                # )
+
                 # Compute the loss for the current column.
-                loss_fct = torch.nn.CrossEntropyLoss()
-                lm_loss_field = loss_fct(
-                    lm_logits_field.view(-1, len(global_ids_field)),
+                lm_loss_field = self.loss(
+                    lm_logits_field.view(-1, global_ids_len),
                     lm_labels_local_field.view(-1),
                 )
                 total_lm_loss += lm_loss_field
