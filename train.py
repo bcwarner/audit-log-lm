@@ -5,7 +5,7 @@ import os
 import lightning.pytorch as pl
 import torch
 import yaml
-from lightning.pytorch.profilers import PyTorchProfiler
+from lightning.pytorch.profilers import PyTorchProfiler, AdvancedProfiler
 from lightning.pytorch.tuner import Tuner
 from transformers import GPT2Config, RwkvConfig
 
@@ -71,8 +71,8 @@ if __name__ == "__main__":
 
     profiler = None
     if args.profile:
-        profiler = PyTorchProfiler(
-            sort_by_key="cpu_time",
+        profiler = AdvancedProfiler(
+            # sort_by_key="cpu_time",
             dirpath=os.path.normpath(os.path.join(path_prefix, config["log_path"])),
             filename="pt_profile",
         )

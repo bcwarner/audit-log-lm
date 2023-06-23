@@ -103,13 +103,8 @@ class EHRAuditGPT2(GPT2LMHeadModel):
             shift_logits = lm_logits[..., :-1, :]  # .contiguous()
             shift_labels = labels[..., 1:]  # .contiguous()
 
-            # Ensure that the sequence len does not go past the attention mask for each batch
-            total_lm_loss = 0
-
             # Iterate through each of the fields and compute the loss over each column.
-            # Exclude the special tokens.
-            # field_names = self.vocab.field_names(include_special=False)
-            for field_idx in range(self.field_ct):
+            def _compute_loss(field_idx):
                 # Get the locations of the current column in the input.
                 col_ids = self.col_ids[field_idx]
 
@@ -141,7 +136,12 @@ class EHRAuditGPT2(GPT2LMHeadModel):
                     lm_logits_field.view(-1, global_ids_len),
                     lm_labels_local_field.view(-1),
                 )
-                total_lm_loss += lm_loss_field
+                return lm_loss_field
+
+            # Compute the loss for each field.
+            # Avoids a for loop, but fixes the # of fields.
+            # Is this actually faster?
+            total_lm_loss = _compute_loss(0) + _compute_loss(1) + _compute_loss(2)
 
             # Append the loss to the end of the outputs.
             outputs = (total_lm_loss,) + outputs
