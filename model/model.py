@@ -22,8 +22,11 @@ class EHRAuditGPT2(GPT2LMHeadModel):
         self.seq_len = config.n_positions - 1
 
         field_names = self.vocab.field_names(include_special=False)
-        self.col_ids = list(range(len(field_names)))
-        self.col_ids_labels = list(range(len(field_names)))
+        self.field_ct = len(field_names)
+        self.col_ids = list(range(self.field_ct))
+        self.col_ids_labels = list(range(self.field_ct))
+        self.global_ids_field = list(range(self.field_ct))
+        self.field_start = list(range(self.field_ct))
         for field_idx, field_name in enumerate(field_names):
             self.col_ids[field_idx] = list(
                 range(field_idx, self.seq_len, len(field_names))
@@ -31,6 +34,31 @@ class EHRAuditGPT2(GPT2LMHeadModel):
             self.col_ids_labels[field_idx] = list(
                 range(field_idx - 1, self.seq_len, len(field_names))
             )
+            if field_idx == 0:
+                self.col_ids_labels[field_idx] = self.col_ids_labels[field_idx][1:]
+
+            if len(self.col_ids[field_idx]) < len(
+                self.col_ids_labels[field_idx]
+            ):  # Ensure the lengths are the same.
+                self.col_ids[field_idx].append(
+                    self.col_ids[field_idx][-1] + len(field_names)
+                )
+
+            if len(self.col_ids_labels[field_idx]) < len(self.col_ids[field_idx]):
+                self.col_ids_labels[field_idx].append(
+                    self.col_ids_labels[field_idx][-1] + len(field_names)
+                )
+
+            self.global_ids_field[field_idx] = self.vocab.field_ids[field_name]
+            self.field_start[field_idx] = self.vocab.field_ids[field_name][0]
+
+        # Tensorize the above fields.
+        self.col_ids = torch.tensor(self.col_ids, dtype=torch.long)
+        self.col_ids_labels = torch.tensor(self.col_ids_labels, dtype=torch.long)
+        self.global_ids_field = [
+            torch.tensor(x, dtype=torch.long) for x in self.global_ids_field
+        ]
+        self.field_start = torch.tensor(self.field_start, dtype=torch.long)
 
     def forward(
         self,
@@ -79,26 +107,26 @@ class EHRAuditGPT2(GPT2LMHeadModel):
 
             # Iterate through each of the fields and compute the loss over each column.
             # Exclude the special tokens.
-            field_names = self.vocab.field_names(include_special=False)
-            for field_idx, field_name in enumerate(field_names):
+            # field_names = self.vocab.field_names(include_special=False)
+            for field_idx in range(self.field_ct):
                 # Get the locations of the current column in the input.
                 col_ids = self.col_ids[field_idx]
 
                 # Get the locations of the current column in the labels.
                 col_ids_labels = self.col_ids_labels[field_idx]
-                if field_idx == 0:
-                    col_ids_labels = col_ids_labels[1:]
+                # if field_idx == 0:
+                #    col_ids_labels = col_ids_labels[1:]
 
-                if len(col_ids) < len(
-                    col_ids_labels
-                ):  # Ensure the lengths are the same.
-                    col_ids.append(col_ids[-1] + len(field_names))
+                # if len(col_ids) < len(
+                #    col_ids_labels
+                # ):  # Ensure the lengths are the same.
+                #    col_ids.append(col_ids[-1] + len(field_names))
 
-                if len(col_ids_labels) < len(col_ids):
-                    col_ids_labels.append(col_ids_labels[-1] + len(field_names))
+                # if len(col_ids_labels) < len(col_ids):
+                #    col_ids_labels.append(col_ids_labels[-1] + len(field_names))
 
                 # Get the IDs of the logits for the current column.
-                global_ids_field = self.vocab.field_ids[field_name]
+                global_ids_field = self.global_ids_field[field_idx]
 
                 # Select the relevant logits.
                 lm_logits_field = shift_logits[:, col_ids, :][:, :, global_ids_field]
@@ -107,7 +135,7 @@ class EHRAuditGPT2(GPT2LMHeadModel):
                 lm_labels_field = shift_labels[:, col_ids_labels]
                 # breakpoint()
                 lm_labels_local_field = self.vocab.globals_to_locals_torch(
-                    lm_labels_field, self.vocab.field_ids[field_name][0]
+                    lm_labels_field, self.field_start[field_idx]
                 )
 
                 # Compute the loss for the current column.
