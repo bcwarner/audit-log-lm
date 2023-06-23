@@ -28,6 +28,7 @@ class EHRAuditGPT2(GPT2LMHeadModel):
         self.col_ids = [list()] * self.field_ct
         self.col_ids_labels = [list()] * self.field_ct
         self.global_ids_field = [list()] * self.field_ct
+        self.field_ids_start = list()
         for field_idx, field_name in enumerate(field_names):
             self.col_ids[field_idx] = list(
                 range(field_idx, self.seq_len, len(field_names))
@@ -52,6 +53,8 @@ class EHRAuditGPT2(GPT2LMHeadModel):
                 self.col_ids_labels[field_idx].append(
                     self.col_ids_labels[field_idx][-1] + self.field_ct
                 )
+
+            self.field_ids_start.append(self.vocab.field_ids[field_name][0])
 
     def forward(
         self,
@@ -114,8 +117,12 @@ class EHRAuditGPT2(GPT2LMHeadModel):
 
                 # Select the relevant labels.
                 lm_labels_field = shift_labels[:, col_ids_labels]
-                # TODO: Speed this up
-                lm_labels_local_field = self.vocab.globals_to_locals(lm_labels_field)
+
+                lm_labels_local_field = self.vocab.globals_to_locals_torch(
+                    # Quick fix
+                    lm_labels_field,
+                    self.field_ids_start[field_idx],
+                )
 
                 # Compute the loss for the current column.
                 loss_fct = torch.nn.CrossEntropyLoss()

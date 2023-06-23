@@ -1,5 +1,6 @@
 # Used to build the vocab for the EHR audit log dataset.
 import argparse
+import itertools
 from collections import OrderedDict
 import os
 import pickle
@@ -80,13 +81,16 @@ class EHRVocab:
     def globals_to_locals(self, global_ids: torch.Tensor):
         # Iterate over the elements of the tensor and convert them to local IDs.
         local_ids = torch.zeros_like(global_ids)
-        # Copy global_ids to cpu
-        global_ids_cpu = global_ids
-        for i in range(global_ids_cpu.shape[0]):  # Batch
-            for j in range(global_ids_cpu.shape[1]):  # Element
-                local_ids[i, j] = self.global_to_token(global_ids_cpu[i, j].item())
+        for i in range(global_ids.shape[0]):  # Batch
+            for j in range(global_ids.shape[1]):  # Element
+                local_ids[i, j] = self.global_to_token(global_ids[i, j])
 
-        return local_ids
+        return local_ids.to(global_ids.device)
+
+    def globals_to_locals_torch(self, global_ids: torch.Tensor, field_start: int):
+        # Idea: Each sub-vocab is always fixed in location, so the local ids are = global ids - offset.
+        # If this assumption is not true, then it will break.
+        return torch.clamp(torch.sub(global_ids, field_start - 1), min=0)
 
     def field_names(self, include_special=False):
         l = list(self.field_tokens.keys())
