@@ -19,6 +19,18 @@ class EHRAuditGPT2(GPT2LMHeadModel):
         super().__init__(config)
         self.config = config
         self.vocab = vocab
+        self.seq_len = config.n_positions - 1
+
+        field_names = self.vocab.field_names(include_special=False)
+        self.col_ids = list(range(len(field_names)))
+        self.col_ids_labels = list(range(len(field_names)))
+        for field_idx, field_name in enumerate(field_names):
+            self.col_ids[field_idx] = list(
+                range(field_idx, self.seq_len, len(field_names))
+            )
+            self.col_ids_labels[field_idx] = list(
+                range(field_idx - 1, self.seq_len, len(field_names))
+            )
 
     def forward(
         self,
@@ -70,10 +82,10 @@ class EHRAuditGPT2(GPT2LMHeadModel):
             field_names = self.vocab.field_names(include_special=False)
             for field_idx, field_name in enumerate(field_names):
                 # Get the locations of the current column in the input.
-                col_ids = list(range(field_idx, seq_len, len(field_names)))
+                col_ids = self.col_ids[field_idx]
 
                 # Get the locations of the current column in the labels.
-                col_ids_labels = list(range(field_idx - 1, seq_len, len(field_names)))
+                col_ids_labels = self.col_ids_labels[field_idx]
                 if field_idx == 0:
                     col_ids_labels = col_ids_labels[1:]
 
