@@ -56,7 +56,8 @@ if __name__ == "__main__":
         dataset = EHRAuditDataset(
             provider_path,
             sep_min=config["sep_min"],
-            log_name=config["audit_log_file"],
+            log_name="access_log_raw.csv",
+            event_type_cols=["METRIC_NAME", "METRIC_ID"],
             should_tokenize=False,
             cache=None,
         )
@@ -64,11 +65,12 @@ if __name__ == "__main__":
         missing_ms = defaultdict(int)
         not_missing_ms = defaultdict(int)
         for seq in dataset:
-            for event in seq["METRIC_NAME"]:
-                if event not in metric_dict:
-                    missing_ms[event] += 1
+            for idx, event in seq.iterrows():
+                if event["METRIC_NAME"] not in metric_dict:
+                    missing_ms[event["METRIC_NAME"]] += 1
+                    # missing_ms[(event["METRIC_NAME"], event["METRIC_ID"])] += 1
                 else:
-                    not_missing_ms[event] += 1
+                    not_missing_ms[event["METRIC_NAME"]] += 1
 
         return missing_ms, not_missing_ms
 

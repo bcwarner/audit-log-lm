@@ -151,6 +151,18 @@ if __name__ == "__main__":
         config["metric_name_dict"]["column"]
     ].tolist()
 
+    # Missing METRIC_NAMEs
+    df2 = pd.read_excel(
+        os.path.normpath(
+            os.path.join(path_prefix, config["metric_name_dict"]["file2"])
+        ),
+        engine="openpyxl",
+    )
+    categorical_column_opts["METRIC_NAME"].extend(
+        # Extend with the column at index 0
+        df2.iloc[:, 0].tolist()
+    )
+
     # Create the vocab
     vocab = EHRVocab(categorical_column_opts, vocab_path=vocab_path)
     vocab.save()

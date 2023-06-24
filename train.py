@@ -5,6 +5,7 @@ import os
 import lightning.pytorch as pl
 import torch
 import yaml
+from lightning.pytorch.callbacks import TQDMProgressBar
 from lightning.pytorch.profilers import PyTorchProfiler, AdvancedProfiler
 from lightning.pytorch.tuner import Tuner
 from transformers import GPT2Config, RwkvConfig
@@ -27,9 +28,26 @@ if __name__ == "__main__":
         "--batch_size", type=int, default=2, help="Batch size to use for pretraining."
     )
     parser.add_argument(
+        "--updates",
+        type=int,
+        default=10,
+        help="Batches to wait before logging training progress.",
+    )
+    parser.add_argument(
         "--profile",
         action="store_true",
         help="Whether to profile the training process.",
+    )
+    parser.add_argument(
+        "--reset_cache",
+        action="store_true",
+        help="Whether to reset the cache before training.",
+    )
+    parser.add_argument(
+        "--subset",
+        type=float,
+        default=1.0,
+        help="Fraction of the dataset to use across train/val/test.",
     )
     args = parser.parse_args()
 
@@ -56,7 +74,7 @@ if __name__ == "__main__":
         "gpt2": GPT2Config(
             vocab_size=len(vocab),
             n_positions=1024,
-            n_head=12,
+            n_head=6,
             n_layer=6,
         ),
     }
@@ -65,6 +83,7 @@ if __name__ == "__main__":
         config_path,
         vocab=vocab,
         batch_size=args.batch_size,
+        reset_cache=args.reset_cache,
     )
 
     model = models[args.model](model_configs[args.model], vocab)
@@ -77,16 +96,24 @@ if __name__ == "__main__":
             filename="pt_profile",
         )
 
+    train_max = (
+        args.subset if args.profile is False else 100
+    )  # If profiling is on, just use 100 batches
+    val_max = args.subset if args.profile is False else 100
+    test_max = args.subset if args.profile is False else 100
+
     trainer = pl.Trainer(
         max_epochs=args.max_epochs,
         logger=pl.loggers.TensorBoardLogger(
             save_dir=os.path.normpath(os.path.join(path_prefix, config["log_path"])),
             name="pretraining",
         ),
-        accumulate_grad_batches=64,
+        accumulate_grad_batches=32,
         profiler=profiler,
-        limit_train_batches=100 if args.profile else None,
-        limit_val_batches=100 if args.profile else None,
+        limit_train_batches=train_max,
+        limit_val_batches=val_max,
+        limit_test_batches=test_max,
+        callbacks=[TQDMProgressBar(refresh_rate=args.updates)],
     )
 
     pt_task = EHRAuditPretraining(model)

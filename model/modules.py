@@ -81,6 +81,7 @@ class EHRAuditDataModule(pl.LightningDataModule):
         vocab: EHRVocab,
         batch_size=1,
         n_positions=1024,
+        reset_cache=False,
     ):
         super().__init__()
         with open(yaml_config_path) as f:
@@ -88,6 +89,7 @@ class EHRAuditDataModule(pl.LightningDataModule):
         self.vocab = vocab
         self.batch_size = batch_size
         self.n_positions = n_positions
+        self.reset_cache = reset_cache
 
     def prepare_data(self):
         # Itereate through each prefix and determine which one exists, then choose that one.
@@ -104,7 +106,6 @@ class EHRAuditDataModule(pl.LightningDataModule):
         sep_min = self.config["sep_min"]
 
         def log_load(self, provider: str):
-            print("Caching provider: ", provider)
             prov_path = os.path.normpath(os.path.join(data_path, provider))
             # Check the file is not empty and exists, there's a couple of these.
             log_path = os.path.normpath(os.path.join(prov_path, log_name))
@@ -112,10 +113,13 @@ class EHRAuditDataModule(pl.LightningDataModule):
                 return
 
             # Skip datasets we've already prepared.
-            if os.path.exists(
-                os.path.normpath(
-                    os.path.join(prov_path, self.config["audit_log_cache"])
+            if (
+                os.path.exists(
+                    os.path.normpath(
+                        os.path.join(prov_path, self.config["audit_log_cache"])
+                    )
                 )
+                and self.reset_cache is False
             ):
                 return
 
@@ -136,7 +140,7 @@ class EHRAuditDataModule(pl.LightningDataModule):
 
         # Cache the datasets in parallel
         # Load them sequentially after caching
-        joblib.Parallel(n_jobs=1, verbose=1)(
+        joblib.Parallel(n_jobs=-1 if self.reset_cache else 1, verbose=1)(
             joblib.delayed(log_load)(self, provider)
             for provider in os.listdir(data_path)
         )
@@ -153,7 +157,7 @@ class EHRAuditDataModule(pl.LightningDataModule):
             os.path.join(path_prefix, self.config["audit_log_path"])
         )
         datasets = []
-        for provider in tqdm(os.listdir(data_path)):
+        for provider in os.listdir(data_path):
             # Check there's a cache file (some should not have this, see above)
             prov_path = os.path.normpath(os.path.join(data_path, provider))
             if not os.path.exists(
@@ -196,7 +200,7 @@ class EHRAuditDataModule(pl.LightningDataModule):
         self.train_dataset = ChainDataset([datasets[i] for i in train_indices])
         self.val_dataset = ChainDataset([datasets[i] for i in val_indices])
         self.test_dataset = ChainDataset([datasets[i] for i in test_indices])
-        self.num_workers = os.cpu_count()
+        self.num_workers = 2  # os.cpu_count()
         print(f"Using {self.num_workers} workers for data loading.")
         print(
             f"Train size: {len(train_indices)}, val size: {len(val_indices)}, test size: {len(test_indices)}"
@@ -204,33 +208,24 @@ class EHRAuditDataModule(pl.LightningDataModule):
 
     def get_collate_fn(self):
         def collate_fn(batch):
-            # Generate attention mask
             input_ids_col = []
-            # attention_mask_col = []
             labels_col = []
             for input_ids in batch:
                 pad_pos_count = self.n_positions - input_ids.size(0)
-                # attention_mask = torch.ones_like(input_ids)
                 # Pad to max length or crop to max length
                 if input_ids.size(0) < self.n_positions:
-                    # attention_mask = torch.nn.functional.pad(
-                    #    input=attention_mask,
-                    #    pad=(0, pad_pos_count),
-                    #    value=0,  # Off for rest
-                    # )
                     input_ids = torch.nn.functional.pad(
                         input=input_ids,
                         pad=(0, pad_pos_count),
-                        value=0,  # EOS token
+                        value=-100,  # EOS token
                     )
                 elif input_ids.size(0) > self.n_positions:
                     input_ids = input_ids[: self.n_positions]
-                    # attention_mask = attention_mask[:self.n_positions]
 
                 labels = input_ids.clone().detach()
+                input_ids[labels == -100] = 0
 
                 input_ids_col.append(input_ids)
-                # attention_mask_col.append(attention_mask)
                 labels_col.append(labels)
 
             return torch.stack(input_ids_col), torch.stack(labels_col)
