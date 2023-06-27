@@ -25,6 +25,17 @@ if __name__ == "__main__":
     parser.add_argument(
         "--max_samples", type=int, default=None, help="Maximum batches to use."
     )
+    parser.add_argument(
+        "--exp_suffix",
+        type=str,
+        default=None,
+        help="Suffix to add to the output file name.",
+    )
+    parser.add_argument(
+        "--by_provider",
+        action="store_true",
+        help="Whether to calculate entropy by provider.",
+    )
     args = parser.parse_args()
     # Get the list of models from the config file
     config_path = os.path.normpath(
@@ -101,7 +112,7 @@ if __name__ == "__main__":
             input_ids_c = torch.zeros_like(input_ids)
             labels_c = labels.clone()
             # Set the labels to -100, zero out the input_ids
-            labels_c[:, :first_pad_idx] = -100
+            labels_c[:, :] = -100
 
             ce_current = []
 
@@ -109,6 +120,8 @@ if __name__ == "__main__":
                 # Set the ith label and input_id
                 input_ids_c[:, i] = input_ids[:, i]
                 labels_c[:, i] = labels[:, i]
+                if i > 0:
+                    labels_c[:, i - 1] = -100  # One token at a time
 
                 if i >= window_size:
                     input_ids_c[:, i - window_size] = 0
@@ -146,14 +159,18 @@ if __name__ == "__main__":
     plt.savefig(
         os.path.normpath(
             os.path.join(
-                path_prefix, config["results_path"], f"entropy_{len(ce_values)}.png"
+                path_prefix,
+                config["results_path"],
+                f"entropy_{len(ce_values)}_{args.exp_suffix}.png",
             )
         )
     )
     tikzplotlib.save(
         os.path.normpath(
             os.path.join(
-                path_prefix, config["results_path"], f"entropy_{len(ce_values)}.tex"
+                path_prefix,
+                config["results_path"],
+                f"entropy_{len(ce_values)}_{args.exp_suffix}.tex",
             )
         )
     )

@@ -29,6 +29,7 @@ class EHRAuditDataset(IterableDataset):
         sep_min: int = 240,
         user_col: str = "PAT_ID",
         timestamp_col: str = "ACCESS_TIME",
+        timestamp_sort_cols: List[str] = ["ACCESS_TIME", "ACCESS_INSTANT"],
         event_type_cols: List[str] = ["METRIC_NAME"],
         log_name: str = None,
         vocab: EHRVocab = None,
@@ -48,6 +49,7 @@ class EHRAuditDataset(IterableDataset):
         self.vocab = vocab
         self.timestamp_spaces = timestamp_spaces
         self.should_tokenize = should_tokenize
+        self.timestamp_sort_cols = timestamp_sort_cols
 
         if self.timestamp_spaces is None and self.should_tokenize is True:
             raise ValueError("Tokenization depends on timestamp binning.")
@@ -72,15 +74,29 @@ class EHRAuditDataset(IterableDataset):
         path = os.path.normpath(os.path.join(self.root_dir, self.log_name))
         df = pd.read_csv(path)
 
+        # Ensure that timestamp_col is in timestamp_sort_cols
+        if self.timestamp_col not in self.timestamp_sort_cols:
+            raise ValueError(
+                f"timestamp_col {self.timestamp_col} must be in timestamp_sort_cols"
+            )
+
         # Delete all columns not included
-        df = df[[self.user_col, self.timestamp_col] + self.event_type_cols]
+        df = df[[self.user_col, self.timestamp_sort_cols] + self.event_type_cols]
 
         # Convert the timestamp to time deltas.
         # If not in seconds, convert to seconds.
         if df[self.timestamp_col].dtype == np.dtype("O"):
             df[self.timestamp_col] = pd.to_datetime(df[self.timestamp_col])
             df[self.timestamp_col] = df[self.timestamp_col].astype(np.int64) // 10**9
+
+        # Sort by timestamp
+        df = df.sort_values(by=self.timestamp_sort_cols)
+        # Delete the timestamp_sort_cols except for the timestamp_col
+        df = df.drop(columns=set(self.timestamp_sort_cols) - {self.timestamp_col})
+
+        # Time deltas, (ignore negative values, these will be quantized away)
         df.loc[:, self.timestamp_col] = df.loc[:, self.timestamp_col].copy().diff()
+
         # Set beginning of shift to 0, otherwise it's nan.
         df.loc[0, self.timestamp_col] = 0
 
