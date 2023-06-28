@@ -5,14 +5,14 @@ import pickle
 
 import numpy as np
 import torch
-from torch.utils.data import Dataset, IterableDataset
+from torch.utils.data import Dataset
 from typing import List
 import pandas as pd
 
 from model.vocab import EHRVocab
 
 
-class EHRAuditDataset(IterableDataset):
+class EHRAuditDataset(Dataset):
     """
     Dataset for Epic EHR audit log data.
 
@@ -29,6 +29,7 @@ class EHRAuditDataset(IterableDataset):
         session_sep_min: int = 4,
         shift_sep_min: int = 300,
         user_col: str = "PAT_ID",
+        user_max: int = 128,
         timestamp_col: str = "ACCESS_TIME",
         timestamp_sort_cols: List[str] = ["ACCESS_TIME", "ACCESS_INSTANT"],
         event_type_cols: List[str] = ["METRIC_NAME"],
@@ -45,6 +46,7 @@ class EHRAuditDataset(IterableDataset):
         self.session_sep_min = session_sep_min
         self.shift_sep_min = shift_sep_min
         self.user_col = user_col
+        self.user_max = user_max
         self.timestamp_col = timestamp_col
         self.event_type_cols = event_type_cols
         self.log_name = log_name
@@ -112,31 +114,37 @@ class EHRAuditDataset(IterableDataset):
             if row[self.timestamp_col] > sep_sec:
                 df.loc[i, self.timestamp_col] = 0
                 seq_end_idx = i
-                seqs_shifts.append(df.iloc[seq_start_idx:seq_end_idx, :].copy())
+                seqs_shifts.append(df.loc[seq_start_idx:seq_end_idx, :].copy())
                 seq_start_idx = seq_end_idx
 
         # Append the last shift
-        seqs_shifts.append(df.iloc[seq_start_idx:, :].copy())
+        seqs_shifts.append(df.loc[seq_start_idx:, :].copy())
 
         # Convert the user IDs in each shift to a unique integer
-        # Missing user IDs are handled below.
+        # IDs over the max are cropped to the max.
         for seq in seqs_shifts:
             seq[self.user_col] = seq[self.user_col].astype("category").cat.codes
+            seq[self.user_col] = seq[self.user_col].clip(
+                upper=self.user_max - 1, lower=-1
+            )
 
         # Separate the data into sessions.
         sep_sec = self.session_sep_min * 60
         seqs = []
-        seq_start_idx = 0
         for shift in seqs_shifts:
+            seq_start_idx = 0
+            # Reset the index
+            shift = shift.reset_index(drop=True)
             for i, row in shift.iterrows():
                 if row[self.timestamp_col] > sep_sec:
                     shift.loc[i, self.timestamp_col] = 0  # Reset the time delta to 0.
                     seq_end_idx = i
-                    seqs.append(shift.iloc[seq_start_idx:seq_end_idx, :].copy())
+                    new_seq = shift.loc[seq_start_idx:seq_end_idx, :].copy()
+                    seqs.append(new_seq)
                     seq_start_idx = seq_end_idx
 
             # Append the last shift
-            seqs.append(shift.iloc[seq_start_idx:, :].copy())
+            seqs.append(shift.loc[seq_start_idx:, :].copy())
 
         # Also convert the events to the corresponding vocab value.
         self.seqs = seqs
@@ -150,6 +158,9 @@ class EHRAuditDataset(IterableDataset):
         if self.should_tokenize:
             tokenized_cols = [self.user_col, self.timestamp_col] + self.event_type_cols
             tokenized_seqs = []
+            chunk_size = self.max_length
+            chunk_size -= chunk_size % len(tokenized_cols)
+
             for s in self.seqs:  # Iterate each sequence
                 tokenized_example = []
                 for i, row in s.iterrows():  # Iterate each row
@@ -160,6 +171,9 @@ class EHRAuditDataset(IterableDataset):
                         ]
                     )
 
+                if len(tokenized_example) == 0:
+                    continue  # A few empty sequences exist.
+
                 # Add the end of sequence token.
                 tokenized_example.append(
                     self.vocab.field_to_token("special", self.vocab.eos_token)
@@ -169,10 +183,19 @@ class EHRAuditDataset(IterableDataset):
                 tokenized_example = torch.tensor(tokenized_example)
 
                 # Split up the sequence into chunks of max_length if not None
-                if self.max_length is not None:
-                    chunk_size = self.max_length // len(tokenized_cols)
+                if (
+                    self.max_length is not None
+                    and len(tokenized_example) > self.max_length
+                ):
+                    # Make sure the chunks are aligned so every column lines up.
                     tokenized_example = torch.split(tokenized_example, chunk_size)
-                tokenized_seqs.append(tokenized_example)
+
+                    # Get rid of the last example if it's not long enough.
+                    if len(tokenized_example[-1]) % len(tokenized_cols) != 0:
+                        tokenized_example = tokenized_example[:-1]
+                    tokenized_seqs.extend(tokenized_example)
+                else:
+                    tokenized_seqs.append(tokenized_example)
 
             self.seqs = tokenized_seqs
 

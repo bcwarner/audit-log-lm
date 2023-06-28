@@ -82,6 +82,7 @@ class EHRAuditDataModule(pl.LightningDataModule):
         batch_size=1,
         n_positions=1024,
         reset_cache=False,
+        debug=False,
     ):
         super().__init__()
         with open(yaml_config_path) as f:
@@ -90,6 +91,7 @@ class EHRAuditDataModule(pl.LightningDataModule):
         self.batch_size = batch_size
         self.n_positions = n_positions
         self.reset_cache = reset_cache
+        self.debug = debug
 
     def prepare_data(self):
         # Itereate through each prefix and determine which one exists, then choose that one.
@@ -103,7 +105,8 @@ class EHRAuditDataModule(pl.LightningDataModule):
             os.path.join(path_prefix, self.config["audit_log_path"])
         )
         log_name = self.config["audit_log_file"]
-        sep_min = self.config["sep_min"]
+        shift_sep_min = self.config["sep_min"]["shift"]
+        session_sep_min = self.config["sep_min"]["session"]
 
         def log_load(self, provider: str):
             prov_path = os.path.normpath(os.path.join(data_path, provider))
@@ -125,7 +128,8 @@ class EHRAuditDataModule(pl.LightningDataModule):
 
             dset = EHRAuditDataset(
                 prov_path,
-                session_sep_min=sep_min,
+                session_sep_min=session_sep_min,
+                shift_sep_min=shift_sep_min,
                 log_name=log_name,
                 vocab=self.vocab,
                 timestamp_spaces=[
@@ -133,6 +137,7 @@ class EHRAuditDataModule(pl.LightningDataModule):
                     self.config["timestamp_bins"]["max"],
                     self.config["timestamp_bins"]["bins"],
                 ],
+                user_max=self.config["patient_id_max"],
                 should_tokenize=True,
                 cache=self.config["audit_log_cache"],
                 max_length=self.n_positions,
@@ -141,7 +146,16 @@ class EHRAuditDataModule(pl.LightningDataModule):
 
         # Cache the datasets in parallel
         # Load them sequentially after caching
-        joblib.Parallel(n_jobs=-1 if self.reset_cache else 1, verbose=1)(
+        if self.debug:  # Allows for pdb usage regardless
+            threads = 1
+        elif self.reset_cache:  # Multithreaded if not debugging and resetting cache
+            threads = -1
+        else:
+            threads = (
+                1  # Empirically faster to load sequentially if not resetting cache
+            )
+
+        joblib.Parallel(n_jobs=threads, verbose=1)(
             joblib.delayed(log_load)(self, provider)
             for provider in os.listdir(data_path)
         )
@@ -178,6 +192,7 @@ class EHRAuditDataModule(pl.LightningDataModule):
                     self.config["timestamp_bins"]["max"],
                     self.config["timestamp_bins"]["bins"],
                 ],
+                user_max=self.config["patient_id_max"],
                 should_tokenize=False,
                 cache=self.config["audit_log_cache"],
                 max_length=self.n_positions,
@@ -203,7 +218,7 @@ class EHRAuditDataModule(pl.LightningDataModule):
         self.train_dataset = ConcatDataset([datasets[i] for i in train_indices])
         self.val_dataset = ConcatDataset([datasets[i] for i in val_indices])
         self.test_dataset = ConcatDataset([datasets[i] for i in test_indices])
-        self.num_workers = 2  # os.cpu_count()
+        self.num_workers = 2 if not self.debug else 1  # os.cpu_count()
         print(f"Using {self.num_workers} workers for data loading.")
         print(
             f"Train size: {len(train_indices)}, val size: {len(val_indices)}, test size: {len(test_indices)}"

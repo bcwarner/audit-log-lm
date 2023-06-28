@@ -40,6 +40,11 @@ if __name__ == "__main__":
         help="Whether to profile the training process.",
     )
     parser.add_argument(
+        "--dbg",
+        action="store_true",
+        help="Whether to run with single thread.",
+    )
+    parser.add_argument(
         "--reset_cache",
         action="store_true",
         help="Whether to reset the cache before training.",
@@ -91,6 +96,7 @@ if __name__ == "__main__":
         vocab=vocab,
         batch_size=args.batch_size,
         reset_cache=args.reset_cache,
+        debug=args.dbg,
     )
 
     model = models[args.model](model_configs[args.model], vocab)

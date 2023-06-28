@@ -127,6 +127,9 @@ class EHRAuditGPT2(GPT2LMHeadModel):
                     torch.sub(lm_labels_field, global_ids_min - 1), min=0
                 )
 
+                # Check if any of the lm_labels_local_field are out of bounds.
+                # breakpoint() if so
+
                 # self.vocab.globals_to_locals_torch(
                 # lm_labels_field, self.field_start[field_idx]
                 # )
