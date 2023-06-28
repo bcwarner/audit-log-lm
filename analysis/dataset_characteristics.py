@@ -58,7 +58,7 @@ if __name__ == "__main__":
             datasets.append(
                 EHRAuditDataset(
                     prov_path,
-                    sep_min=sep_min,
+                    session_sep_min=sep_min,
                     log_name=log_name,
                     should_tokenize=False,
                     timestamp_spaces=[],
@@ -69,7 +69,7 @@ if __name__ == "__main__":
         datasets.append(
             EHRAuditDataset(
                 prov_path,
-                sep_min=sep_min,
+                session_sep_min=sep_min,
                 log_name=log_name,
                 should_tokenize=False,
                 timestamp_spaces=[],

@@ -55,7 +55,7 @@ if __name__ == "__main__":
     def find_missing_metrics(provider_path):
         dataset = EHRAuditDataset(
             provider_path,
-            sep_min=config["sep_min"],
+            session_sep_min=config["sep_min"],
             log_name="access_log_raw.csv",
             event_type_cols=["METRIC_NAME", "METRIC_ID"],
             should_tokenize=False,

@@ -31,11 +31,6 @@ if __name__ == "__main__":
         default=None,
         help="Suffix to add to the output file name.",
     )
-    parser.add_argument(
-        "--by_provider",
-        action="store_true",
-        help="Whether to calculate entropy by provider.",
-    )
     args = parser.parse_args()
     # Get the list of models from the config file
     config_path = os.path.normpath(

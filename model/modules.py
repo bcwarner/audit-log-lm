@@ -125,7 +125,7 @@ class EHRAuditDataModule(pl.LightningDataModule):
 
             dset = EHRAuditDataset(
                 prov_path,
-                sep_min=sep_min,
+                session_sep_min=sep_min,
                 log_name=log_name,
                 vocab=self.vocab,
                 timestamp_spaces=[
@@ -135,6 +135,7 @@ class EHRAuditDataModule(pl.LightningDataModule):
                 ],
                 should_tokenize=True,
                 cache=self.config["audit_log_cache"],
+                max_length=self.n_positions,
             )
             dset.load_from_log()
 
@@ -169,7 +170,7 @@ class EHRAuditDataModule(pl.LightningDataModule):
 
             dset = EHRAuditDataset(
                 prov_path,
-                sep_min=self.config["sep_min"],
+                session_sep_min=self.config["sep_min"],
                 log_name=self.config["audit_log_file"],
                 vocab=self.vocab,
                 timestamp_spaces=[
@@ -179,6 +180,7 @@ class EHRAuditDataModule(pl.LightningDataModule):
                 ],
                 should_tokenize=False,
                 cache=self.config["audit_log_cache"],
+                max_length=self.n_positions,
             )
             if len(dset) != 0:
                 datasets.append(dset)
@@ -189,6 +191,7 @@ class EHRAuditDataModule(pl.LightningDataModule):
         self.seed = config["random_seed"]
 
         # Assign the datasets into different arrays of datasets to be chained together.
+        # Shuffling will be done after separation of providers.
         train_indices, val_indices, test_indices = random_split(
             range(len(datasets)),
             [
@@ -197,9 +200,9 @@ class EHRAuditDataModule(pl.LightningDataModule):
                 1 - self.config["train_split"] - self.config["val_split"],
             ],
         )
-        self.train_dataset = ChainDataset([datasets[i] for i in train_indices])
-        self.val_dataset = ChainDataset([datasets[i] for i in val_indices])
-        self.test_dataset = ChainDataset([datasets[i] for i in test_indices])
+        self.train_dataset = ConcatDataset([datasets[i] for i in train_indices])
+        self.val_dataset = ConcatDataset([datasets[i] for i in val_indices])
+        self.test_dataset = ConcatDataset([datasets[i] for i in test_indices])
         self.num_workers = 2  # os.cpu_count()
         print(f"Using {self.num_workers} workers for data loading.")
         print(
@@ -240,6 +243,7 @@ class EHRAuditDataModule(pl.LightningDataModule):
             pin_memory=True,
             batch_size=self.batch_size,
             collate_fn=self.get_collate_fn(),
+            shuffle=True,
         )
 
     def val_dataloader(self):
@@ -250,6 +254,7 @@ class EHRAuditDataModule(pl.LightningDataModule):
             pin_memory=True,
             batch_size=self.batch_size,
             collate_fn=self.get_collate_fn(),
+            shuffle=True,
         )
 
     def test_dataloader(self):
@@ -260,4 +265,5 @@ class EHRAuditDataModule(pl.LightningDataModule):
             pin_memory=True,
             batch_size=self.batch_size,
             collate_fn=self.get_collate_fn(),
+            shuffle=True,
         )
