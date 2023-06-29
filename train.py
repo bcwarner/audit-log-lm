@@ -6,6 +6,7 @@ from datetime import datetime
 import lightning.pytorch as pl
 import torch
 import yaml
+from lightning import Callback
 from lightning.pytorch.callbacks import TQDMProgressBar
 from lightning.pytorch.profilers import PyTorchProfiler, AdvancedProfiler
 from lightning.pytorch.tuner import Tuner
@@ -16,6 +17,15 @@ from model.modules import EHRAuditPretraining, EHRAuditDataModule
 from model.vocab import EHRVocab
 
 __spec__ = None
+
+
+class DebugCallback(Callback):
+    def __init__(self):
+        self.debug_now = 0
+
+    def on_train_batch_start(self, trainer, pl_module, batch, batch_idx):
+        pass
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

@@ -20,11 +20,11 @@ class EHRAuditPretraining(pl.LightningModule):
         self.loss = torch.nn.CrossEntropyLoss()
         self.step = 0
 
-    def forward(self, input_ids, labels):
-        return self.model(input_ids, labels=labels)
+    def forward(self, input_ids, labels, should_break=False):
+        return self.model(input_ids, labels=labels, should_break=should_break)
 
     def training_step(self, batch, batch_idx):
-        outputs = self.forward(*batch)
+        outputs = self.forward(*batch, should_break=False)
         loss = outputs[0]
         self.log(
             "train_loss",

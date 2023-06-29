@@ -77,6 +77,7 @@ class EHRAuditGPT2(GPT2LMHeadModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        should_break=False,
         **kwargs
     ):
         transformer_outputs = self.transformer(
@@ -123,16 +124,13 @@ class EHRAuditGPT2(GPT2LMHeadModel):
 
                 # Select the relevant labels.
                 lm_labels_field = shift_labels[:, col_ids_labels]
-                lm_labels_local_field = torch.clamp(
-                    torch.sub(lm_labels_field, global_ids_min - 1), min=0
+
+                lm_labels_local_field_subbed = torch.clamp(
+                    torch.sub(lm_labels_field, global_ids_min), min=0
                 )
-
-                # Check if any of the lm_labels_local_field are out of bounds.
-                # breakpoint() if so
-
-                # self.vocab.globals_to_locals_torch(
-                # lm_labels_field, self.field_start[field_idx]
-                # )
+                lm_labels_local_field = torch.where(
+                    lm_labels_field == -100, -100, lm_labels_local_field_subbed
+                )
 
                 # Compute the loss for the current column.
                 lm_loss_field = self.loss(

@@ -58,7 +58,7 @@ if __name__ == "__main__":
 
     if args.model is None:
         print("Select a model to evaluate:")
-        for i, model in enumerate(model_list):
+        for i, model in enumerate(sorted(model_list)):
             print(f"{i}: {model}")
 
         model_idx = int(input("Model index >>>"))
@@ -90,7 +90,7 @@ if __name__ == "__main__":
     else:
         max_samples = args.max_samples
 
-    window_size = 3 * 30  # 30 action window
+    window_size = 30  # 30 action window
 
     # Calculate the entropy values for the test set
     ce_values = []
@@ -99,10 +99,10 @@ if __name__ == "__main__":
         input_ids, labels = batch
         # Sliding window over the sequence
         with torch.no_grad():
-            # Find the index of the first -100
-            first_pad_idx = (
+            # Find the eos index
+            eos_index = (
                 (labels.view(-1) == -100).nonzero(as_tuple=True)[0][0].item()
-            )
+            ) - 1
             # Copy the labels and targets
             input_ids_c = torch.zeros_like(input_ids)
             labels_c = labels.clone()
@@ -111,16 +111,30 @@ if __name__ == "__main__":
 
             ce_current = []
 
-            for i in range(first_pad_idx):
-                # Set the ith label and input_id
-                input_ids_c[:, i] = input_ids[:, i]
-                labels_c[:, i] = labels[:, i]
+            row_len = len(vocab.field_ids) - 1  # Exclude special fields
+            row_count = (eos_index - 1) // row_len
+            for i in range(0, row_count):
+                input_ids_start = i * row_len
+                input_ids_end = input_ids_start + row_len
+                # Get the current row
+                input_ids_c[:, input_ids_start:input_ids_end] = input_ids[
+                    :, input_ids_start:input_ids_end
+                ]
+                # Labels are next row.
+                labels_row_start = (i + 1) * row_len
+                labels_row_end = labels_row_start + row_len
+                labels_c[:, labels_row_start:labels_row_end] = labels[
+                    :, labels_row_start:labels_row_end
+                ]
                 if i > 0:
-                    labels_c[:, i - 1] = -100  # One token at a time
+                    labels_c[
+                        :, input_ids_start:input_ids_end
+                    ] = -100  # Eliminate previous row.
 
                 if i >= window_size:
-                    input_ids_c[:, i - window_size] = 0
-                    labels_c[:, i - window_size] = -100
+                    old_row_start = (i - window_size) * row_len
+                    old_row_end = old_row_start + row_len
+                    input_ids_c[:, old_row_start:old_row_end] = 0
 
                 # Calculate the cross entropy
                 loss, _, _ = model(input_ids_c, labels=labels_c)
