@@ -113,12 +113,18 @@ if __name__ == "__main__":
 
             row_len = len(vocab.field_ids) - 1  # Exclude special fields
             row_count = (eos_index - 1) // row_len
+            if row_count <= 1:  # Not applicable
+                continue
+
+            # NOTE: Next-token generation != next-row generation
+            # This means that we include the next two tokens in the input to avoid EOS predictions.
             for i in range(0, row_count):
                 input_ids_start = i * row_len
                 input_ids_end = input_ids_start + row_len
+                input_ids_end_extra = input_ids_end + row_len
                 # Get the current row
-                input_ids_c[:, input_ids_start:input_ids_end] = input_ids[
-                    :, input_ids_start:input_ids_end
+                input_ids_c[:, input_ids_start:input_ids_end_extra] = input_ids[
+                    :, input_ids_start:input_ids_end_extra
                 ]
                 # Labels are next row.
                 labels_row_start = (i + 1) * row_len
@@ -138,7 +144,8 @@ if __name__ == "__main__":
 
                 # Calculate the cross entropy
                 loss, _, _ = model(input_ids_c, labels=labels_c)
-                ce_current.append(loss.item())
+                # Divide the cross-entropy by the number of tokens in the row to get avg. token CE
+                ce_current.append(loss.item() / row_len)
 
             ce_values.append(np.mean(ce_current))
 

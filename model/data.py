@@ -152,7 +152,7 @@ class EHRAuditDataset(Dataset):
         if self.timestamp_spaces is not None:
             for s in self.seqs:
                 s.loc[:, self.timestamp_col] = s.loc[:, self.timestamp_col].apply(
-                    lambda x: np.digitize(np.log(x + 1), self.timestamp_spaces)
+                    lambda x: np.digitize(np.log(x + 1e-9), self.timestamp_spaces)
                 )
 
         if self.should_tokenize:
