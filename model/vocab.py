@@ -123,22 +123,6 @@ if __name__ == "__main__":
     # This is where we'll actually build the vocab and then save it.
     categorical_column_opts = dict()
 
-    # Build the patient IDs
-    categorical_column_opts["PAT_ID"] = [
-        # -1 = NaN
-        str(i)
-        for i in range(-1, config["patient_id_max"])
-    ]
-
-    # Time deltas
-    bins = getattr(np, config["timestamp_bins"]["spacing"])(
-        config["timestamp_bins"]["min"],
-        config["timestamp_bins"]["max"],
-        config["timestamp_bins"]["bins"],
-    )
-
-    categorical_column_opts["ACCESS_TIME"] = [str(i) for i in range(len(bins))]
-
     # Segfault otherwise
     import pandas as pd
 
@@ -162,6 +146,22 @@ if __name__ == "__main__":
         # Extend with the column at index 0
         df2.iloc[:, 0].tolist()
     )
+
+    # Build the patient IDs
+    categorical_column_opts["PAT_ID"] = [
+        # -1 = NaN
+        str(i)
+        for i in range(-1, config["patient_id_max"])
+    ]
+
+    # Time deltas
+    bins = getattr(np, config["timestamp_bins"]["spacing"])(
+        config["timestamp_bins"]["min"],
+        config["timestamp_bins"]["max"],
+        config["timestamp_bins"]["bins"],
+    )
+
+    categorical_column_opts["ACCESS_TIME"] = [str(i) for i in range(len(bins))]
 
     # Create the vocab
     vocab = EHRVocab(categorical_column_opts, vocab_path=vocab_path)

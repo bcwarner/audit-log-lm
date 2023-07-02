@@ -87,7 +87,7 @@ class EHRAuditDataset(Dataset):
             )
 
         # Delete all columns not included
-        df = df[[self.user_col] + self.timestamp_sort_cols + self.event_type_cols]
+        df = df[self.event_type_cols + [self.user_col] + self.timestamp_sort_cols]
 
         # Convert the timestamp to time deltas.
         # If not in seconds, convert to seconds.
@@ -156,7 +156,8 @@ class EHRAuditDataset(Dataset):
                 )
 
         if self.should_tokenize:
-            tokenized_cols = [self.user_col, self.timestamp_col] + self.event_type_cols
+            # Order from least likely to be zero to most likely to be zero.
+            tokenized_cols = self.event_type_cols + [self.user_col, self.timestamp_col]
             tokenized_seqs = []
             chunk_size = self.max_length
             chunk_size -= chunk_size % len(tokenized_cols)

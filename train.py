@@ -36,12 +36,12 @@ if __name__ == "__main__":
         "--max_epochs", type=int, default=5, help="Number of epochs to pretrain for."
     )
     parser.add_argument(
-        "--batch_size", type=int, default=2, help="Batch size to use for pretraining."
+        "--batch_size", type=int, default=16, help="Batch size to use for pretraining."
     )
     parser.add_argument(
         "--updates",
         type=int,
-        default=10,
+        default=1,
         help="Batches to wait before logging training progress.",
     )
     parser.add_argument(

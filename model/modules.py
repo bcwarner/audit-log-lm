@@ -1,4 +1,5 @@
 import os
+from functools import partial
 from typing import Any
 
 import joblib
@@ -12,6 +13,33 @@ from Sophia.sophia import SophiaG
 from model.data import EHRAuditDataset
 from model.vocab import EHRVocab
 
+def collate_fn(batch, n_positions=1024):
+    input_ids_col = []
+    labels_col = []
+    for input_ids in batch:
+        pad_pos_count = n_positions - input_ids.size(0)
+        # Pad to max length or crop to max length
+        if input_ids.size(0) < n_positions:
+            input_ids = torch.nn.functional.pad(
+                input=input_ids,
+                pad=(0, pad_pos_count),
+                value=-100,  # EOS token
+            )
+        elif input_ids.size(0) > n_positions:
+            input_ids = input_ids[: n_positions]
+
+        labels = input_ids.clone().detach()
+        input_ids[labels == -100] = 0
+
+        input_ids_col.append(input_ids)
+        labels_col.append(labels)
+
+    return torch.stack(input_ids_col), torch.stack(labels_col)
+
+
+def worker_fn(worker_id, seed=0):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
 
 class EHRAuditPretraining(pl.LightningModule):
     def __init__(self, model):
@@ -224,40 +252,14 @@ class EHRAuditDataModule(pl.LightningDataModule):
             f"Train size: {len(train_indices)}, val size: {len(val_indices)}, test size: {len(test_indices)}"
         )
 
-    def get_collate_fn(self):
-        def collate_fn(batch):
-            input_ids_col = []
-            labels_col = []
-            for input_ids in batch:
-                pad_pos_count = self.n_positions - input_ids.size(0)
-                # Pad to max length or crop to max length
-                if input_ids.size(0) < self.n_positions:
-                    input_ids = torch.nn.functional.pad(
-                        input=input_ids,
-                        pad=(0, pad_pos_count),
-                        value=-100,  # EOS token
-                    )
-                elif input_ids.size(0) > self.n_positions:
-                    input_ids = input_ids[: self.n_positions]
-
-                labels = input_ids.clone().detach()
-                input_ids[labels == -100] = 0
-
-                input_ids_col.append(input_ids)
-                labels_col.append(labels)
-
-            return torch.stack(input_ids_col), torch.stack(labels_col)
-
-        return collate_fn
-
     def train_dataloader(self):
         return torch.utils.data.DataLoader(
             self.train_dataset,
             num_workers=self.num_workers,
-            worker_init_fn=lambda _: torch.manual_seed(self.seed),
+            worker_init_fn=partial(worker_fn, seed=self.seed),
             pin_memory=True,
             batch_size=self.batch_size,
-            collate_fn=self.get_collate_fn(),
+            collate_fn=partial(collate_fn, n_positions=self.n_positions),
             shuffle=True,
         )
 
@@ -265,10 +267,10 @@ class EHRAuditDataModule(pl.LightningDataModule):
         return torch.utils.data.DataLoader(
             self.val_dataset,
             num_workers=self.num_workers,
-            worker_init_fn=lambda _: torch.manual_seed(self.seed),
+            worker_init_fn=partial(worker_fn, seed=self.seed),
             pin_memory=True,
             batch_size=self.batch_size,
-            collate_fn=self.get_collate_fn(),
+            collate_fn=partial(collate_fn, n_positions=self.n_positions),
             shuffle=True,
         )
 
@@ -276,9 +278,9 @@ class EHRAuditDataModule(pl.LightningDataModule):
         return torch.utils.data.DataLoader(
             self.test_dataset,
             num_workers=self.num_workers,
-            worker_init_fn=lambda _: torch.manual_seed(self.seed),
+            worker_init_fn=partial(worker_fn, seed=self.seed),
             pin_memory=True,
             batch_size=self.batch_size,
-            collate_fn=self.get_collate_fn(),
+            collate_fn=partial(collate_fn, n_positions=self.n_positions),
             shuffle=True,
         )
