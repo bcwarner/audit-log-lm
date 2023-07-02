@@ -137,16 +137,17 @@ if __name__ == "__main__":
                         :, input_ids_start:input_ids_end
                     ] = -100  # Eliminate previous row.
 
-                if i >= window_size:
-                    old_row_start = (i - window_size) * row_len
-                    old_row_end = old_row_start + row_len
-                    input_ids_c[:, old_row_start:old_row_end] = 0
+                # if i >= window_size:
+                #    old_row_start = (i - window_size) * row_len
+                #    old_row_end = old_row_start + row_len
+                #    input_ids_c[:, old_row_start:old_row_end] = 0
 
                 # Calculate the cross entropy
                 loss, _, _ = model(input_ids_c, labels=labels_c)
                 # Divide the cross-entropy by the number of tokens in the row to get avg. token CE
                 ce_current.append(loss.item() / row_len)
 
+            breakpoint()
             ce_values.append(np.mean(ce_current))
 
         batches_seen += 1
@@ -202,14 +203,18 @@ if __name__ == "__main__":
     plt.savefig(
         os.path.normpath(
             os.path.join(
-                path_prefix, config["results_path"], f"perplexity_{len(ce_values)}.png"
+                path_prefix,
+                config["results_path"],
+                f"perplexity_{len(ce_values)}_{args.exp_suffix}.png",
             )
         )
     )
     tikzplotlib.save(
         os.path.normpath(
             os.path.join(
-                path_prefix, config["results_path"], f"perplexity_{len(ce_values)}.tex"
+                path_prefix,
+                config["results_path"],
+                f"perplexity_{len(ce_values)}_{args.exp_suffix}.tex",
             )
         )
     )
