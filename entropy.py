@@ -147,7 +147,6 @@ if __name__ == "__main__":
                 # Divide the cross-entropy by the number of tokens in the row to get avg. token CE
                 ce_current.append(loss.item() / row_len)
 
-            breakpoint()
             ce_values.append(np.mean(ce_current))
 
         batches_seen += 1

@@ -54,7 +54,6 @@ class EHRAuditPretraining(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         outputs = self.forward(*batch, should_break=False)
         loss = outputs[0]
-        breakpoint()
         self.log(
             "train_loss",
             loss.mean(),

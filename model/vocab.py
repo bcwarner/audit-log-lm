@@ -138,7 +138,7 @@ if __name__ == "__main__":
     # Missing METRIC_NAMEs
     df2 = pd.read_excel(
         os.path.normpath(
-            os.path.join(path_prefix, config["metric_name_dict"]["file2"])
+            os.path.join(path_prefix, config["metric_name_dict"]["missing_metric_file"])
         ),
         engine="openpyxl",
     )
