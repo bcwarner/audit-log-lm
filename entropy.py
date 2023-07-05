@@ -263,12 +263,12 @@ class PatientsSessionsEntropyExperiment(Experiment):
         # Get the patient ID
         patient_id = row[PAT_ID_COL]
         # If we've seen a new patient, record the entropy of the previous patient
-        if self.cur_batch != batch_no:
+        if self.cur_batch != batch_no and self.cur_batch != -1:
             self.entropy_by_patient_count_mean[len(self.seen_patients)].append(np.mean(self.entropies))
             self.entropy_by_patient_count_std[len(self.seen_patients)].append(np.std(self.entropies))
-            self.cur_batch = batch_no
             self.seen_patients = set()
             self.entropies = list()
+        self.cur_batch = batch_no
 
         if patient_id not in self.seen_patients:
             self.seen_patients.add(patient_id)
@@ -280,16 +280,29 @@ class PatientsSessionsEntropyExperiment(Experiment):
         plt.clf()
         points = []
         for k, v in self.entropy_by_patient_count_mean.items():
-            for x in v:
-                points.append((k, x))
+            for y in v:
+                points.append((k, y))
         x, y = zip(*points)
+        # Make x the log scale
         plt.scatter(x, y)
         plt.xlabel("Number of Patients")
         plt.ylabel("Mean Entropy")
-        # Trendline
+        plt.gca().set_xscale("log")
+        # Trendline w/ correlation
         z = np.polyfit(x, y, 1)
         p = np.poly1d(z)
-        plt.plot(x, p(y), "r--")
+        r = np.corrcoef(x, y)[0, 1]
+        x_ = np.linspace(min(self.entropy_by_patient_count_mean.keys()), max(self.entropy_by_patient_count_mean.keys()), 100)
+        plt.plot(x_, p(x_), "r--", label="Trendline (r={:.2f})".format(r))
+        # Trendline for patient counts above 10 patients
+        x_filt, y_filt = zip(*[(x, y) for x, y in points if x > 10])
+        z = np.polyfit(x_filt, y_filt, 1)
+        p = np.poly1d(z)
+        r = np.corrcoef(x_filt, y_filt)[0, 1]
+        x_ = np.linspace(10, max(x_), 100)
+        plt.plot(x_, p(x_), "g--", label="10+ Patients (r={:.2f})".format(r))
+        plt.title("Mean Entropy by Number of Patients in a Session")
+        plt.legend()
         plt.savefig(os.path.normpath(
             os.path.join(self.path_prefix, self.config["results_path"], "entropy_by_patient_count.png")
         ))
@@ -480,12 +493,13 @@ if __name__ == "__main__":
 
     print(tabulate(stats.items(), headers=["Metric", "Value"]))
 
+    plt.clf()
     # Plot the entropy values
     print(f"Plotting entropy values for {len(ce_values)} samples...")
     plt.hist(ce_values, bins=100)
     plt.title(f"Avg. Entropy/Token for Test Set (N = {len(ce_values)})")
     plt.xlabel("Entropy")
-    plt.ylabel("Count")(labels.view(-1) == -100).nonzero(as_tuple=True)
+    plt.ylabel("Count")
     plt.savefig(
         os.path.normpath(
             os.path.join(

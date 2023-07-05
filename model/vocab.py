@@ -59,6 +59,7 @@ class EHRVocab:
             self.vocab_path = vocab_path
 
             # Allocate the categorical tokens.
+
             for category, tokens in categorical_column_opts.items():
                 for t in tokens:
                     new_token(category, t)

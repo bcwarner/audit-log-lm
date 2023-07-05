@@ -149,11 +149,18 @@ class EHRAuditDataset(Dataset):
         # Also convert the events to the corresponding vocab value.
         self.seqs = seqs
 
+        # TODO: Ensure that the vocab responds to timestamp_bins.spacing
         if self.timestamp_spaces is not None:
-            for s in self.seqs:
-                s.loc[:, self.timestamp_col] = s.loc[:, self.timestamp_col].apply(
-                    lambda x: np.digitize(np.log(x + 1e-9), self.timestamp_spaces)
+            for idx in range(len(self.seqs)):
+                s = self.seqs[idx]
+                res = s.loc[:, self.timestamp_col].apply(
+                    lambda x: np.digitize(np.log(x + 1e-9), np.logspace(*self.timestamp_spaces)).astype(int)
                 )
+                # Drop the old timestamp column
+                s = s.drop(columns=[self.timestamp_col])
+                # Add the new timestamp column
+                s[self.timestamp_col] = res.astype(int)
+                self.seqs[idx] = s
 
         if self.should_tokenize:
             # Order from least likely to be zero to most likely to be zero.
