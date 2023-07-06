@@ -51,6 +51,9 @@ class Experiment:
         """
         return True
 
+    def samples_seen(self):
+        return -1
+
 class EntropyExperiment(Experiment):
     def __init__(self, config: dict, path_prefix: str, *args, **kwargs):
         super().__init__(config, path_prefix, *args, **kwargs)
@@ -71,12 +74,13 @@ class EntropySwitchesExperiment(Experiment):
     def __init__(self,
                  config: dict,
                  path_prefix: str,
+                 vocab: EHRVocab,
                  *args,):
         """
         Measures the entropy of the nth switch during a session vs. the entropy.
         Also compares the entropy of all switches during a session vs. non-switches.
         """
-        super().__init__(config, path_prefix)
+        super().__init__(config, path_prefix, vocab)
 
         self.switch_entropies_before: defaultdict[int, list] = defaultdict(list) # Switch no => list of entropies
         self.switch_entropies_after: defaultdict[int, list] = defaultdict(list) # Switch no => list of entropies
@@ -172,6 +176,10 @@ class EntropySwitchesExperiment(Experiment):
         print("Before t-test p-value: {}".format(self.non_switch_entropies, p_before))
         print("After t-test p-value: {}".format(self.non_switch_entropies, p_after))
 
+    def samples_seen(self):
+        return len(self.batch_ct.keys())
+
+
 class SecureChatEntropy(Experiment):
     def __init__(self,
                  config,
@@ -236,6 +244,9 @@ class SecureChatEntropy(Experiment):
             os.path.join(res_path, "entropy_secure_chat_types_boxplot.png")
         ))
 
+    def samples_seen(self):
+        return len(self.entropy_present) + sum([len(x) for x in self.entropy_by_type.values()])
+
 class PatientsSessionsEntropyExperiment(Experiment):
     def __init__(self,
                  config,
@@ -252,6 +263,7 @@ class PatientsSessionsEntropyExperiment(Experiment):
         self.cur_batch = -1
         self.seen_patients = set()
         self.entropies = list()
+        self._samples_seen = 0
 
     def on_row(self,
                row=None,
@@ -274,6 +286,7 @@ class PatientsSessionsEntropyExperiment(Experiment):
             self.seen_patients.add(patient_id)
             # Record the entropy of this row
         self.entropies.append(row_loss)
+        self._samples_seen += 1
 
     def on_finish(self):
         # Scatter plot of mean entropy by number of patients
@@ -307,6 +320,8 @@ class PatientsSessionsEntropyExperiment(Experiment):
             os.path.join(self.path_prefix, self.config["results_path"], "entropy_by_patient_count.png")
         ))
 
+    def samples_seen(self):
+        return self._samples_seen
 
 if __name__ == "__main__":
     # Get arguments
@@ -397,8 +412,12 @@ if __name__ == "__main__":
 
     window_size = 30  # 30 action window
 
-    # Initialize the experiment
-    experiment = eval(args.exp)(config, path_prefix, vocab)
+    # Initialize the experiments
+    if "," in args.exp:
+        experiments = [eval(exp)(config, path_prefix, vocab) for exp in args.exp.split(",")]
+    else:
+        experiments = [eval(args.exp)(config, path_prefix, vocab)]
+
 
     # Calculate the entropy values for the test set
     ce_values = []
@@ -428,8 +447,8 @@ if __name__ == "__main__":
             if row_count <= 1:  # Not applicable
                 continue
 
-            if experiment is not None and not experiment.on_batch(input_ids[0]):
-                continue
+            if len(experiments) > 0:
+                should_on_row = [experiments[i].on_row(input_ids[0]) for i in range(len(experiments))]
 
             prev_row = None
             prev_row_loss = None
@@ -464,11 +483,13 @@ if __name__ == "__main__":
                 # Divide the cross-entropy by the number of tokens in the row to get avg. token CE
                 avg_loss = loss.item() / row_len
                 ce_current.append(avg_loss)
-                experiment.on_row(row=input_ids[:, input_ids_start:input_ids_end].tolist()[0],
-                                  row_loss=avg_loss,
-                                  prev_row=prev_row,
-                                  prev_row_loss=prev_row_loss,
-                                  batch_no=batches_seen,)
+                for i in range(len(experiments)):
+                    if should_on_row[i]:
+                        experiments[i].on_row(row=input_ids[:, input_ids_start:input_ids_end].tolist()[0],
+                                           row_loss=avg_loss,
+                                           prev_row=prev_row,
+                                           prev_row_loss=prev_row_loss,
+                                           batch_no=batches_seen, )
                 prev_row = input_ids[:, input_ids_start:input_ids_end].tolist()[0]
                 prev_row_loss = avg_loss
 
@@ -476,10 +497,11 @@ if __name__ == "__main__":
             ce_values.append(np.mean(ce_current))
 
         batches_seen += 1
-        if max_samples != 0 and batches_seen >= max_samples:
+        if max_samples != 0 and all([exp.samples_seen() >= max_samples for exp in experiments]):
             break
 
-    experiment.on_finish()
+    for e in experiments:
+        e.on_finish()
 
     # Print statistics about the entropy values
     stats = {
