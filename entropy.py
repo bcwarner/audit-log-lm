@@ -22,24 +22,28 @@ METRIC_NAME_COL = 0
 PAT_ID_COL = 1
 ACCESS_TIME_COL = 2
 
+
 class Experiment:
-    def __init__(self,
-                 config: dict,
-                 path_prefix: str,
-                 vocab: EHRVocab,
-                 *args,
-                 **kwargs, ):
+    def __init__(
+        self,
+        config: dict,
+        path_prefix: str,
+        vocab: EHRVocab,
+        *args,
+        **kwargs,
+    ):
         self.config = config
         self.path_prefix = path_prefix
         self.vocab = vocab
 
-    def on_row(self,
-               row=None,
-               prev_row=None,
-               row_loss=None,
-               prev_row_loss=None,
-               batch_no=None,
-               ):
+    def on_row(
+        self,
+        row=None,
+        prev_row=None,
+        row_loss=None,
+        prev_row_loss=None,
+        batch_no=None,
+    ):
         pass
 
     def on_finish(self):
@@ -54,48 +58,62 @@ class Experiment:
     def samples_seen(self):
         return -1
 
+
 class EntropyExperiment(Experiment):
     def __init__(self, config: dict, path_prefix: str, *args, **kwargs):
         super().__init__(config, path_prefix, *args, **kwargs)
         pass
 
-    def on_row(self,
-               row=None,
-               row_loss=None,
-               prev_row=None,
-               prev_row_loss=None,
-               batch_no=None,
-               ):
+    def on_row(
+        self,
+        row=None,
+        row_loss=None,
+        prev_row=None,
+        prev_row_loss=None,
+        batch_no=None,
+    ):
         pass
+
     def on_finish(self):
         pass
 
+
 class EntropySwitchesExperiment(Experiment):
-    def __init__(self,
-                 config: dict,
-                 path_prefix: str,
-                 vocab: EHRVocab,
-                 *args,):
+    def __init__(
+        self,
+        config: dict,
+        path_prefix: str,
+        vocab: EHRVocab,
+        *args,
+    ):
         """
         Measures the entropy of the nth switch during a session vs. the entropy.
         Also compares the entropy of all switches during a session vs. non-switches.
         """
         super().__init__(config, path_prefix, vocab)
 
-        self.switch_entropies_before: defaultdict[int, list] = defaultdict(list) # Switch no => list of entropies
-        self.switch_entropies_after: defaultdict[int, list] = defaultdict(list) # Switch no => list of entropies
-        self.non_switch_entropies = [] # List of entropies for non-switches
-        self.batch_ct = defaultdict(int) # Batch no => current row
+        self.switch_entropies_before: defaultdict[int, list] = defaultdict(
+            list
+        )  # Switch no => list of entropies
+        self.switch_entropies_after: defaultdict[int, list] = defaultdict(
+            list
+        )  # Switch no => list of entropies
+        self.non_switch_entropies = []  # List of entropies for non-switches
+        self.batch_ct = defaultdict(int)  # Batch no => current row
+        self._samples_seen = 0
 
-    def on_row(self,
-               row=None,
-               row_loss=None,
-               prev_row=None,
-               prev_row_loss=None,
-               batch_no=None,
-               ):
+    def on_row(
+        self,
+        row=None,
+        row_loss=None,
+        prev_row=None,
+        prev_row_loss=None,
+        batch_no=None,
+    ):
         if prev_row is None:
             return
+        if batch_no not in self.batch_ct:
+            self._samples_seen += 1
         self.batch_ct[batch_no] += 1
         if prev_row[PAT_ID_COL] != row[PAT_ID_COL]:
             switch_ct = self.batch_ct[batch_no]
@@ -115,25 +133,43 @@ class EntropySwitchesExperiment(Experiment):
         switch_entropies_after_mean = []
         switch_entropies_after_std = []
         for switch_ct in self.switch_entropies_before:
-            switch_entropies_before_mean.append(np.mean(self.switch_entropies_before[switch_ct]))
-            switch_entropies_after_std.append(np.std(self.switch_entropies_after[switch_ct]))
-            switch_entropies_after_mean.append(np.mean(self.switch_entropies_after[switch_ct]))
-            switch_entropies_before_std.append(np.std(self.switch_entropies_before[switch_ct]))
+            switch_entropies_before_mean.append(
+                np.mean(self.switch_entropies_before[switch_ct])
+            )
+            switch_entropies_after_std.append(
+                np.std(self.switch_entropies_after[switch_ct])
+            )
+            switch_entropies_after_mean.append(
+                np.mean(self.switch_entropies_after[switch_ct])
+            )
+            switch_entropies_before_std.append(
+                np.std(self.switch_entropies_before[switch_ct])
+            )
 
         # Plot the entropy of the nth switch during a session vs. the entropy.
         x = np.arange(1, len(switch_entropies_before_mean) + 1)
         max_n = 10
-        plt.errorbar(x[:max_n], switch_entropies_before_mean[:max_n], yerr=switch_entropies_before_std[:max_n], label="Before", ls="none")
-        plt.errorbar(x[:max_n], switch_entropies_after_mean[:max_n], yerr=switch_entropies_after_std[:max_n], label="After", ls="none")
+        plt.errorbar(
+            x[:max_n],
+            switch_entropies_before_mean[:max_n],
+            yerr=switch_entropies_before_std[:max_n],
+            label="Before",
+            ls="none",
+        )
+        plt.errorbar(
+            x[:max_n],
+            switch_entropies_after_mean[:max_n],
+            yerr=switch_entropies_after_std[:max_n],
+            label="After",
+            ls="none",
+        )
         plt.xlabel("Switch")
         plt.ylabel("Entropy")
         plt.legend()
         res_path = os.path.normpath(
             os.path.join(self.path_prefix, self.config["results_path"])
         )
-        plt.savefig(os.path.normpath(
-            os.path.join(res_path, "entropy_switches.png")
-        ))
+        plt.savefig(os.path.normpath(os.path.join(res_path, "entropy_switches.png")))
 
         switch_entropies_before_all = []
         switch_entropies_after_all = []
@@ -143,51 +179,82 @@ class EntropySwitchesExperiment(Experiment):
 
         # Also compare the entropy of all switches during a session vs. non-switches.
         plt.clf()
-        plt.boxplot([self.non_switch_entropies, switch_entropies_before_all, switch_entropies_after_all])
+        plt.boxplot(
+            [
+                self.non_switch_entropies,
+                switch_entropies_before_all,
+                switch_entropies_after_all,
+            ]
+        )
         plt.xticks([1, 2, 3], ["Non-switch", "Before", "After"])
         plt.ylabel("Entropy")
-        plt.savefig(os.path.normpath(
-            os.path.join(res_path, "entropy_switches_vs_non_switches.png")
-        ))
+        plt.savefig(
+            os.path.normpath(
+                os.path.join(res_path, "entropy_switches_vs_non_switches.png")
+            )
+        )
 
         # Make a probability distribution funciton of the entropy of switches vs. non-switches using matplotlib
         plt.clf()
-        plt.hist([self.non_switch_entropies, switch_entropies_before_all, switch_entropies_after_all], bins=50, density=True, histtype="step", label=["Non-switch", "Before", "After"])
+        plt.hist(
+            [
+                self.non_switch_entropies,
+                switch_entropies_before_all,
+                switch_entropies_after_all,
+            ],
+            bins=50,
+            density=True,
+            histtype="step",
+            label=["Non-switch", "Before", "After"],
+        )
         plt.legend()
         plt.xlabel("Entropy")
         plt.ylabel("Probability")
-        plt.savefig(os.path.normpath(
-            os.path.join(res_path, "entropy_switches_vs_non_switches_cdf.png")
-        ))
+        plt.savefig(
+            os.path.normpath(
+                os.path.join(res_path, "entropy_switches_vs_non_switches_cdf.png")
+            )
+        )
 
         # Plot the log entropy of switches vs. non-switches using matplotlib
         plt.clf()
-        plt.hist([np.log(self.non_switch_entropies), np.log(switch_entropies_before_all), np.log(switch_entropies_after_all)], bins=50, density=True, histtype="step", label=["Non-switch", "Before", "After"])
+        plt.hist(
+            [
+                np.log(self.non_switch_entropies),
+                np.log(switch_entropies_before_all),
+                np.log(switch_entropies_after_all),
+            ],
+            bins=50,
+            density=True,
+            histtype="step",
+            label=["Non-switch", "Before", "After"],
+        )
         plt.legend()
         plt.xlabel("Log entropy")
         plt.ylabel("Probability")
-        plt.savefig(os.path.normpath(
-            os.path.join(res_path, "log_entropy_switches_vs_non_switches_cdf.png")
-        ))
+        plt.savefig(
+            os.path.normpath(
+                os.path.join(res_path, "log_entropy_switches_vs_non_switches_cdf.png")
+            )
+        )
 
         # Calculate the p-value that the distributions are the same using scipy
-        _, p_before = scipy.stats.ttest_ind(self.non_switch_entropies, switch_entropies_before_all)
-        _, p_after = scipy.stats.ttest_ind(self.non_switch_entropies, switch_entropies_after_all)
-        print("Before t-test p-value: {}".format(self.non_switch_entropies, p_before))
-        print("After t-test p-value: {}".format(self.non_switch_entropies, p_after))
+        _, p_before = scipy.stats.ttest_ind(
+            self.non_switch_entropies, switch_entropies_before_all
+        )
+        _, p_after = scipy.stats.ttest_ind(
+            self.non_switch_entropies, switch_entropies_after_all
+        )
+        print(f"Before t-test p-value: {p_before}")
+        print(f"After t-test p-value: {p_after}")
 
     def samples_seen(self):
-        return len(self.batch_ct.keys())
+        return self._samples_seen
 
 
 class SecureChatEntropy(Experiment):
-    def __init__(self,
-                 config,
-                 path_prefix,
-                 vocab):
-        super().__init__(config,
-                         path_prefix,
-                         vocab)
+    def __init__(self, config, path_prefix, vocab):
+        super().__init__(config, path_prefix, vocab)
         # Find the vocab elements that have "secure chat" in them
         self.secure_chat_vocab = []
         self.secure_chat_vocab_names = []
@@ -196,22 +263,27 @@ class SecureChatEntropy(Experiment):
                 self.secure_chat_vocab.append(vv)
                 self.secure_chat_vocab_names.append(vk)
 
-        self.entropy_by_type = defaultdict(list) # Secure chat type => list of entropies
+        self.entropy_by_type = defaultdict(
+            list
+        )  # Secure chat type => list of entropies
         # Are they higher overall for when seen in a secure chat?
-        self.entropy_present = list() # List of entropies seen in sequences visited
+        self.entropy_present = list()  # List of entropies seen in sequences visited
         self._samples_seen = 0
 
     def on_batch(self, sequence):
         # Only examine sequences with secure chat
-        return any([x in sequence for x in self.secure_chat_vocab])
+        res = any([x in sequence for x in self.secure_chat_vocab])
+        self._samples_seen += int(res)
+        return res
 
-    def on_row(self,
-               row=None,
-               prev_row=None,
-               row_loss=None,
-               prev_row_loss=None,
-               batch_no=None,
-               ):
+    def on_row(
+        self,
+        row=None,
+        prev_row=None,
+        row_loss=None,
+        prev_row_loss=None,
+        batch_no=None,
+    ):
         # Get the METRIC_NAME token for this row.
         metric_name_token = row[METRIC_NAME_COL]
         if metric_name_token in self.secure_chat_vocab:
@@ -224,42 +296,63 @@ class SecureChatEntropy(Experiment):
         # Plot the entropy of each type of secure chat as a histogram.
         plt.clf()
         for token, name in zip(self.secure_chat_vocab, self.secure_chat_vocab_names):
-            plt.hist(self.entropy_by_type[token], bins=50, density=True, histtype="step", label=name)
+            plt.hist(
+                self.entropy_by_type[token],
+                bins=50,
+                density=True,
+                histtype="step",
+                label=name,
+            )
         # Also plot the entropy of all tokens seen in secure chat as a histogram.
-        plt.hist(self.entropy_present, bins=50, density=True, histtype="step", label="Other Session Actions")
+        plt.hist(
+            self.entropy_present,
+            bins=50,
+            density=True,
+            histtype="step",
+            label="Other Session Actions",
+        )
         plt.legend()
         plt.xlabel("Entropy")
         plt.ylabel("Probability")
         res_path = os.path.normpath(
             os.path.join(self.path_prefix, self.config["results_path"])
         )
-        plt.savefig(os.path.normpath(
-            os.path.join(res_path, "entropy_secure_chat_types.png")
-        ))
+        plt.savefig(
+            os.path.normpath(os.path.join(res_path, "entropy_secure_chat_types.png"))
+        )
 
         # Plot the entropy of each type of secure chat as a boxplot.
         plt.clf()
-        plt.boxplot([self.entropy_by_type[token] for token in self.secure_chat_vocab] + [self.entropy_present])
-        plt.xticks(range(1, len(self.secure_chat_vocab) + 2), self.secure_chat_vocab_names + ["Other Session Actions"], rotation=90)
+        plt.boxplot(
+            [self.entropy_by_type[token] for token in self.secure_chat_vocab]
+            + [self.entropy_present]
+        )
+        plt.xticks(
+            range(1, len(self.secure_chat_vocab) + 2),
+            self.secure_chat_vocab_names + ["Other Session Actions"],
+            rotation=90,
+        )
         plt.ylabel("Entropy")
-        plt.savefig(os.path.normpath(
-            os.path.join(res_path, "entropy_secure_chat_types_boxplot.png")
-        ))
+        plt.savefig(
+            os.path.normpath(
+                os.path.join(res_path, "entropy_secure_chat_types_boxplot.png")
+            )
+        )
 
     def samples_seen(self):
         return self._samples_seen
 
+
 class PatientsSessionsEntropyExperiment(Experiment):
-    def __init__(self,
-                 config,
-                 path_prefix,
-                 vocab):
-        super().__init__(config,
-                        path_prefix,
-                        vocab)
+    def __init__(self, config, path_prefix, vocab):
+        super().__init__(config, path_prefix, vocab)
         # Get the entropy of each session as a function of the number of patients
-        self.entropy_by_patient_count_mean: defaultdict[int, list] = defaultdict(list) # Number of patients => list of entropies
-        self.entropy_by_patient_count_std: defaultdict[int, list] = defaultdict(list) # Number of patients => list of entropies
+        self.entropy_by_patient_count_mean: defaultdict[int, list] = defaultdict(
+            list
+        )  # Number of patients => list of entropies
+        self.entropy_by_patient_count_std: defaultdict[int, list] = defaultdict(
+            list
+        )  # Number of patients => list of entropies
 
         # Iteration variables
         self.cur_batch = -1
@@ -267,19 +360,24 @@ class PatientsSessionsEntropyExperiment(Experiment):
         self.entropies = list()
         self._samples_seen = 0
 
-    def on_row(self,
-               row=None,
-               prev_row=None,
-               row_loss=None,
-               prev_row_loss=None,
-               batch_no=None,
-               ):
+    def on_row(
+        self,
+        row=None,
+        prev_row=None,
+        row_loss=None,
+        prev_row_loss=None,
+        batch_no=None,
+    ):
         # Get the patient ID
         patient_id = row[PAT_ID_COL]
         # If we've seen a new patient, record the entropy of the previous patient
         if self.cur_batch != batch_no and self.cur_batch != -1:
-            self.entropy_by_patient_count_mean[len(self.seen_patients)].append(np.mean(self.entropies))
-            self.entropy_by_patient_count_std[len(self.seen_patients)].append(np.std(self.entropies))
+            self.entropy_by_patient_count_mean[len(self.seen_patients)].append(
+                np.mean(self.entropies)
+            )
+            self.entropy_by_patient_count_std[len(self.seen_patients)].append(
+                np.std(self.entropies)
+            )
             self.seen_patients = set()
             self.entropies = list()
         self.cur_batch = batch_no
@@ -307,7 +405,11 @@ class PatientsSessionsEntropyExperiment(Experiment):
         z = np.polyfit(x, y, 1)
         p = np.poly1d(z)
         r = np.corrcoef(x, y)[0, 1]
-        x_ = np.linspace(min(self.entropy_by_patient_count_mean.keys()), max(self.entropy_by_patient_count_mean.keys()), 100)
+        x_ = np.linspace(
+            min(self.entropy_by_patient_count_mean.keys()),
+            max(self.entropy_by_patient_count_mean.keys()),
+            100,
+        )
         plt.plot(x_, p(x_), "r--", label="Trendline (r={:.2f})".format(r))
         # Trendline for patient counts above 10 patients
         x_filt, y_filt = zip(*[(x, y) for x, y in points if x > 10])
@@ -318,12 +420,19 @@ class PatientsSessionsEntropyExperiment(Experiment):
         plt.plot(x_, p(x_), "g--", label="10+ Patients (r={:.2f})".format(r))
         plt.title("Mean Entropy by Number of Patients in a Session")
         plt.legend()
-        plt.savefig(os.path.normpath(
-            os.path.join(self.path_prefix, self.config["results_path"], "entropy_by_patient_count.png")
-        ))
+        plt.savefig(
+            os.path.normpath(
+                os.path.join(
+                    self.path_prefix,
+                    self.config["results_path"],
+                    "entropy_by_patient_count.png",
+                )
+            )
+        )
 
     def samples_seen(self):
         return self._samples_seen
+
 
 if __name__ == "__main__":
     # Get arguments
@@ -360,6 +469,9 @@ if __name__ == "__main__":
             path_prefix = prefix
             break
 
+    if path_prefix == "":
+        raise RuntimeError("No valid drive mounted.")
+
     model_paths = os.path.normpath(
         os.path.join(path_prefix, config["pretrained_model_path"])
     )
@@ -370,6 +482,9 @@ if __name__ == "__main__":
         if any([file.endswith(".bin") for file in files]):
             # Append the last three directories to the model list
             model_list.append(os.path.join(*root.split(os.sep)[-3:]))
+
+    if len(model_list) == 0:
+        raise ValueError(f"No models found in {format(model_paths)}")
 
     if args.model is None:
         print("Select a model to evaluate:")
@@ -385,13 +500,15 @@ if __name__ == "__main__":
         os.path.join(path_prefix, config["pretrained_model_path"], model_name)
     )
 
+    # Get the device to use
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     # Load the test dataset
     vocab = EHRVocab(
         vocab_path=os.path.normpath(os.path.join(path_prefix, config["vocab_path"]))
     )
     model = EHRAuditGPT2.from_pretrained(model_path, vocab=vocab)
-    # Place the model on the GPU
-    model = model.cuda()
+    model.to(device)
 
     dm = EHRAuditDataModule(
         yaml_config_path=config_path,
@@ -416,15 +533,26 @@ if __name__ == "__main__":
 
     # Initialize the experiments
     if "," in args.exp:
-        experiments = [eval(exp)(config, path_prefix, vocab) for exp in args.exp.split(",")]
+        experiments = [
+            eval(exp)(config, path_prefix, vocab) for exp in args.exp.split(",")
+        ]
     else:
         experiments = [eval(args.exp)(config, path_prefix, vocab)]
 
+    print(f"Running experiments:")
+    for exp in experiments:
+        print("-", type(exp).__name__)
+
+    # Initialize progress bars for each experiment
+    exp_pbar = [
+        tqdm(total=max_samples, position=x, desc=type(exp).__name__)
+        for x, exp in enumerate(experiments)
+    ]
 
     # Calculate the entropy values for the test set
     ce_values = []
     batches_seen = 0
-    pbar = tqdm(total=max_samples)
+    pbar = tqdm(total=max_samples, position=len(experiments), desc="Batches Seen")
     for batch in dl:
         input_ids, labels = batch
         # Sliding window over the sequence
@@ -450,7 +578,14 @@ if __name__ == "__main__":
                 continue
 
             if len(experiments) > 0:
-                should_on_row = [experiments[i].on_batch(input_ids[0]) for i in range(len(experiments))]
+                should_on_row = [
+                    experiments[i].on_batch(input_ids[0])
+                    and experiments[i].samples_seen() < max_samples
+                    for i in range(len(experiments))
+                ]
+
+            if len(experiments) > 0 and not any(should_on_row):
+                continue
 
             prev_row = None
             prev_row_loss = None
@@ -481,17 +616,20 @@ if __name__ == "__main__":
                 #    input_ids_c[:, old_row_start:old_row_end] = 0
 
                 # Calculate the cross entropy
-                loss, _, _ = model(input_ids_c.to("cuda"), labels=labels_c.to("cuda"))
+                loss, _, _ = model(input_ids_c.to(device), labels=labels_c.to(device))
                 # Divide the cross-entropy by the number of tokens in the row to get avg. token CE
                 avg_loss = loss.item() / row_len
                 ce_current.append(avg_loss)
-                for i in range(len(experiments)):
-                    if should_on_row[i]:
-                        experiments[i].on_row(row=input_ids[:, input_ids_start:input_ids_end].tolist()[0],
-                                           row_loss=avg_loss,
-                                           prev_row=prev_row,
-                                           prev_row_loss=prev_row_loss,
-                                           batch_no=batches_seen, )
+                for j in range(len(experiments)):
+                    if should_on_row[j]:
+                        experiments[j].on_row(
+                            row=input_ids[:, input_ids_start:input_ids_end].tolist()[0],
+                            row_loss=avg_loss,
+                            prev_row=prev_row,
+                            prev_row_loss=prev_row_loss,
+                            batch_no=batches_seen,
+                        )
+                        exp_pbar[j].update(1)
                 prev_row = input_ids[:, input_ids_start:input_ids_end].tolist()[0]
                 prev_row_loss = avg_loss
 
@@ -499,9 +637,10 @@ if __name__ == "__main__":
             ce_values.append(np.mean(ce_current))
 
         batches_seen += 1
-        for
-        if max_samples != 0 and all([exp.samples_seen() >= max_samples for exp in experiments]) \
-                or batches_seen >= max_samples * 2: # Prevents runaway if there's a bug
+
+        if max_samples != 0 and all(
+            [exp.samples_seen() >= max_samples for exp in experiments]
+        ):
             break
 
     for e in experiments:
