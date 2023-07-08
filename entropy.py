@@ -199,8 +199,9 @@ class SecureChatEntropy(Experiment):
         self.entropy_by_type = defaultdict(list) # Secure chat type => list of entropies
         # Are they higher overall for when seen in a secure chat?
         self.entropy_present = list() # List of entropies seen in sequences visited
+        self._samples_seen = 0
 
-    def should_examine(self, sequence):
+    def on_batch(self, sequence):
         # Only examine sequences with secure chat
         return any([x in sequence for x in self.secure_chat_vocab])
 
@@ -215,6 +216,7 @@ class SecureChatEntropy(Experiment):
         metric_name_token = row[METRIC_NAME_COL]
         if metric_name_token in self.secure_chat_vocab:
             self.entropy_by_type[metric_name_token].append(row_loss)
+            self._samples_seen += 1
         else:
             self.entropy_present.append(row_loss)
 
@@ -245,7 +247,7 @@ class SecureChatEntropy(Experiment):
         ))
 
     def samples_seen(self):
-        return len(self.entropy_present) + sum([len(x) for x in self.entropy_by_type.values()])
+        return self._samples_seen
 
 class PatientsSessionsEntropyExperiment(Experiment):
     def __init__(self,
@@ -448,7 +450,7 @@ if __name__ == "__main__":
                 continue
 
             if len(experiments) > 0:
-                should_on_row = [experiments[i].on_row(input_ids[0]) for i in range(len(experiments))]
+                should_on_row = [experiments[i].on_batch(input_ids[0]) for i in range(len(experiments))]
 
             prev_row = None
             prev_row_loss = None
@@ -497,7 +499,9 @@ if __name__ == "__main__":
             ce_values.append(np.mean(ce_current))
 
         batches_seen += 1
-        if max_samples != 0 and all([exp.samples_seen() >= max_samples for exp in experiments]):
+        for
+        if max_samples != 0 and all([exp.samples_seen() >= max_samples for exp in experiments]) \
+                or batches_seen >= max_samples * 2: # Prevents runaway if there's a bug
             break
 
     for e in experiments:
