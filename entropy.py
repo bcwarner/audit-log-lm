@@ -112,6 +112,8 @@ class EntropySwitchesExperiment(Experiment):
     ):
         if prev_row is None:
             return
+        if batch_no not in self.batch_ct:
+            self._samples_seen += 1
         self.batch_ct[batch_no] += 1
         if prev_row[PAT_ID_COL] != row[PAT_ID_COL]:
             switch_ct = self.batch_ct[batch_no]
@@ -119,7 +121,6 @@ class EntropySwitchesExperiment(Experiment):
             self.switch_entropies_after[switch_ct].append(row_loss)
         else:
             self.non_switch_entropies.append(row_loss)
-        self._samples_seen += 1
 
     def on_batch(self, sequence):
         return True
@@ -244,8 +245,8 @@ class EntropySwitchesExperiment(Experiment):
         _, p_after = scipy.stats.ttest_ind(
             self.non_switch_entropies, switch_entropies_after_all
         )
-        print("Before t-test p-value: {}".format(self.non_switch_entropies, p_before))
-        print("After t-test p-value: {}".format(self.non_switch_entropies, p_after))
+        print(f"Before t-test p-value: {p_before}")
+        print(f"After t-test p-value: {p_after}")
 
     def samples_seen(self):
         return self._samples_seen
@@ -271,7 +272,9 @@ class SecureChatEntropy(Experiment):
 
     def on_batch(self, sequence):
         # Only examine sequences with secure chat
-        return any([x in sequence for x in self.secure_chat_vocab])
+        res = any([x in sequence for x in self.secure_chat_vocab])
+        self._samples_seen += int(res)
+        return res
 
     def on_row(
         self,
@@ -285,7 +288,6 @@ class SecureChatEntropy(Experiment):
         metric_name_token = row[METRIC_NAME_COL]
         if metric_name_token in self.secure_chat_vocab:
             self.entropy_by_type[metric_name_token].append(row_loss)
-            self._samples_seen += 1
         else:
             self.entropy_present.append(row_loss)
 
@@ -466,6 +468,9 @@ if __name__ == "__main__":
             path_prefix = prefix
             break
 
+    if path_prefix == "":
+        raise RuntimeError("No valid drive mounted.")
+
     model_paths = os.path.normpath(
         os.path.join(path_prefix, config["pretrained_model_path"])
     )
@@ -476,6 +481,9 @@ if __name__ == "__main__":
         if any([file.endswith(".bin") for file in files]):
             # Append the last three directories to the model list
             model_list.append(os.path.join(*root.split(os.sep)[-3:]))
+
+    if len(model_list) == 0:
+        raise ValueError(f"No models found in {format(model_paths)}")
 
     if args.model is None:
         print("Select a model to evaluate:")
@@ -491,13 +499,15 @@ if __name__ == "__main__":
         os.path.join(path_prefix, config["pretrained_model_path"], model_name)
     )
 
+    # Get the device to use
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     # Load the test dataset
     vocab = EHRVocab(
         vocab_path=os.path.normpath(os.path.join(path_prefix, config["vocab_path"]))
     )
     model = EHRAuditGPT2.from_pretrained(model_path, vocab=vocab)
-    # Place the model on the GPU
-    model = model.cuda()
+    model.to(device)
 
     dm = EHRAuditDataModule(
         yaml_config_path=config_path,
@@ -528,10 +538,20 @@ if __name__ == "__main__":
     else:
         experiments = [eval(args.exp)(config, path_prefix, vocab)]
 
+    print(f"Running experiments:")
+    for exp in experiments:
+        print("-", type(exp).__name__)
+
+    # Initialize progress bars for each experiment
+    exp_pbar = [
+        tqdm(total=max_samples, position=x, desc=type(exp).__name__)
+        for x, exp in enumerate(experiments)
+    ]
+
     # Calculate the entropy values for the test set
     ce_values = []
     batches_seen = 0
-    pbar = tqdm(total=max_samples)
+    pbar = tqdm(total=max_samples, position=len(experiments), desc="Batches Seen")
     for batch in dl:
         input_ids, labels = batch
         # Sliding window over the sequence
@@ -558,8 +578,11 @@ if __name__ == "__main__":
 
             if len(experiments) > 0:
                 should_on_row = [
-                    experiments[i].on_row(input_ids[0]) for i in range(len(experiments))
+                    experiments[i].on_batch(input_ids[0])
+                    and experiments[i].samples_seen() < max_samples
+                    for i in range(len(experiments))
                 ]
+                breakpoint()
 
             if len(experiments) > 0 and not any(should_on_row):
                 continue
@@ -593,7 +616,7 @@ if __name__ == "__main__":
                 #    input_ids_c[:, old_row_start:old_row_end] = 0
 
                 # Calculate the cross entropy
-                loss, _, _ = model(input_ids_c.to("cuda"), labels=labels_c.to("cuda"))
+                loss, _, _ = model(input_ids_c.to(device), labels=labels_c.to(device))
                 # Divide the cross-entropy by the number of tokens in the row to get avg. token CE
                 avg_loss = loss.item() / row_len
                 ce_current.append(avg_loss)
@@ -606,6 +629,7 @@ if __name__ == "__main__":
                             prev_row_loss=prev_row_loss,
                             batch_no=batches_seen,
                         )
+                        exp_pbar[j].update(1)
                 prev_row = input_ids[:, input_ids_start:input_ids_end].tolist()[0]
                 prev_row_loss = avg_loss
 
@@ -613,9 +637,6 @@ if __name__ == "__main__":
             ce_values.append(np.mean(ce_current))
 
         batches_seen += 1
-        if batches_seen % 100 == 0:
-            for e in experiments:
-                print(e.__name__, e.samples_seen())
         if max_samples != 0 and all(
             [exp.samples_seen() >= max_samples for exp in experiments]
         ):

@@ -37,6 +37,8 @@ class EHRAuditGPT2(GPT2LMHeadModel):
                 range(field_idx - 1, self.seq_len, len(field_names))
             )
             if field_idx == 0:
+                # TODO: This appears to get the labels in the wrong location.
+                # Although it may actually be correct, since the labels are shifted
                 self.col_ids_labels[field_idx] = self.col_ids_labels[field_idx][1:]
 
             if len(self.col_ids[field_idx]) < len(
