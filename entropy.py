@@ -154,14 +154,12 @@ class EntropySwitchesExperiment(Experiment):
             switch_entropies_before_mean[:max_n],
             yerr=switch_entropies_before_std[:max_n],
             label="Before",
-            ls="none",
         )
         plt.errorbar(
             x[:max_n],
             switch_entropies_after_mean[:max_n],
             yerr=switch_entropies_after_std[:max_n],
             label="After",
-            ls="none",
         )
         plt.xlabel("Switch")
         plt.ylabel("Entropy")
@@ -380,13 +378,13 @@ class PatientsSessionsEntropyExperiment(Experiment):
             )
             self.seen_patients = set()
             self.entropies = list()
+            self._samples_seen += 1
         self.cur_batch = batch_no
 
         if patient_id not in self.seen_patients:
             self.seen_patients.add(patient_id)
             # Record the entropy of this row
         self.entropies.append(row_loss)
-        self._samples_seen += 1
 
     def on_finish(self):
         # Scatter plot of mean entropy by number of patients
@@ -434,6 +432,108 @@ class PatientsSessionsEntropyExperiment(Experiment):
         return self._samples_seen
 
 
+class TimeEntropyExperiment(Experiment):
+    """
+    Measures the entropy as a function of the time delta.
+    """
+
+    def __init__(self, config, path_prefix, vocab):
+        super().__init__(config, path_prefix, vocab)
+        self.entropies_by_time_delta = defaultdict(list)
+        self.time_delta_count = defaultdict(int)
+        self._samples_seen = 0
+
+    def on_batch(self, sequence):
+        self._samples_seen += 1
+        return True
+
+    def on_row(
+        self, row=None, prev_row=None, row_loss=None, prev_row_loss=None, batch_no=None
+    ):
+        # Get the time delta
+        time_delta = row[ACCESS_TIME_COL]
+        # Record the entropy of this row
+        self.entropies_by_time_delta[time_delta].append(row_loss)
+        self.time_delta_count[time_delta] += 1
+
+    def samples_seen(self):
+        return self._samples_seen
+
+    def on_finish(self):
+        # Plot the entropy by time delta as a combined barchart showing the % frequency of each time delta
+        # as well as their average entropy w/ error bars
+        plt.clf()
+        plt.figure(figsize=(20, 10))
+        # Get the average entropy for each time delta
+        time_delta_to_mean_entropy = {
+            k: np.mean(v) for k, v in self.entropies_by_time_delta.items()
+        }
+        time_delta_err = {
+            k: np.std(v) / np.sqrt(self.time_delta_count[k])
+            for k, v in self.entropies_by_time_delta.items()
+        }
+        # Get the frequency of each time delta
+        n = sum(self.time_delta_count.values())
+        time_delta_to_freq = {k: v / n for k, v in self.time_delta_count.items()}
+        time_deltas = sorted(self.time_delta_count.keys())
+        # Combined plot
+        fig, ax1 = plt.subplots()
+        # Plot the frequency of each time delta with labels above the bars
+        ax1.bar(
+            time_deltas,
+            [time_delta_to_freq[x] for x in time_deltas],
+            label="Frequency",
+        )
+        ax1.set_ylim(0, 1.1)
+        # Print a frequency label above each bar
+        for k, v in time_delta_to_freq.items():
+            ax1.text(
+                k,
+                v,
+                "{:.2f}".format(v),
+                color="black",
+                ha="center",
+            )
+        ax2 = ax1.twinx()
+        # Plot the average entropy for each time delta
+        ax2.errorbar(
+            time_deltas,
+            [time_delta_to_mean_entropy[x] for x in time_deltas],
+            yerr=[time_delta_err[x] for x in time_deltas],
+            label="Mean Entropy",
+            color="orange",
+        )
+        ax1.legend(loc="upper left")
+        ax2.legend(loc="upper right")
+        plt.xlabel("Time Delta (seconds)")
+        plt.xticks(
+            time_deltas,
+            [str(x) for x in time_deltas],
+            rotation=90,
+        )
+        ax1.set_ylabel("Frequency")
+        ax2.set_ylabel("Mean Entropy")
+        plt.title("Frequency and Mean Entropy by Time Delta")
+        plt.savefig(
+            os.path.normpath(
+                os.path.join(
+                    self.path_prefix,
+                    self.config["results_path"],
+                    "entropy_by_time_delta.png",
+                )
+            )
+        )
+        tikzplotlib.save(
+            os.path.normpath(
+                os.path.join(
+                    self.path_prefix,
+                    self.config["results_path"],
+                    "entropy_by_time_delta.tex",
+                )
+            )
+        )
+
+
 if __name__ == "__main__":
     # Get arguments
     parser = argparse.ArgumentParser()
@@ -446,7 +546,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--exp_suffix",
         type=str,
-        default=None,
+        default="",
         help="Suffix to add to the output file name.",
     )
     parser.add_argument(
@@ -454,6 +554,11 @@ if __name__ == "__main__":
         type=str,
         default="Experiment",
         help="Experiment to run.",
+    )
+    parser.add_argument(
+        "--val",
+        action="store_true",
+        help="Run with the validation dataset instead of the test.",
     )
     args = parser.parse_args()
     # Get the list of models from the config file
@@ -516,7 +621,10 @@ if __name__ == "__main__":
         batch_size=1,  # Just one sample at a time
     )
     dm.setup()
-    dl = dm.test_dataloader()
+    if args.val:
+        dl = dm.val_dataloader()
+    else:
+        dl = dm.test_dataloader()
 
     if args.max_samples is None:
         print(f"Maximum number of samples to evaluate (0 for all, max = {len(dl)}):")
@@ -552,6 +660,7 @@ if __name__ == "__main__":
     # Calculate the entropy values for the test set
     ce_values = []
     batches_seen = 0
+    batches_skipped = 0
     pbar = tqdm(total=max_samples, position=len(experiments), desc="Batches Seen")
     for batch in dl:
         input_ids, labels = batch
@@ -578,13 +687,17 @@ if __name__ == "__main__":
                 continue
 
             if len(experiments) > 0:
-                should_on_row = [
+                should_on_batch = [
                     experiments[i].on_batch(input_ids[0])
                     and experiments[i].samples_seen() < max_samples
                     for i in range(len(experiments))
                 ]
 
-            if len(experiments) > 0 and not any(should_on_row):
+            if len(experiments) > 0 and not any(should_on_batch):
+                if all([exp.samples_seen() >= max_samples for exp in experiments]):
+                    break
+                pbar.set_postfix({"Skipped": batches_skipped})
+                batches_skipped += 1
                 continue
 
             prev_row = None
@@ -621,16 +734,21 @@ if __name__ == "__main__":
                 avg_loss = loss.item() / row_len
                 ce_current.append(avg_loss)
                 for j in range(len(experiments)):
-                    if should_on_row[j]:
+                    if should_on_batch[j]:
+                        # row = input_ids[:, input_ids_start:input_ids_end].tolist()[0]
+                        labels_row = labels[
+                            :, labels_row_start:labels_row_end
+                        ].tolist()[0]
                         experiments[j].on_row(
-                            row=input_ids[:, input_ids_start:input_ids_end].tolist()[0],
+                            row=labels_row,
                             row_loss=avg_loss,
                             prev_row=prev_row,
                             prev_row_loss=prev_row_loss,
                             batch_no=batches_seen,
                         )
-                        exp_pbar[j].update(1)
-                prev_row = input_ids[:, input_ids_start:input_ids_end].tolist()[0]
+                        exp_pbar[j].n = experiments[j].samples_seen()
+                        exp_pbar[j].refresh()
+                prev_row = labels_row
                 prev_row_loss = avg_loss
 
             pbar.update(1)

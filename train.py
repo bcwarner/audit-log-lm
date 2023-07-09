@@ -7,7 +7,7 @@ import lightning.pytorch as pl
 import torch
 import yaml
 from lightning import Callback
-from lightning.pytorch.callbacks import TQDMProgressBar
+from lightning.pytorch.callbacks import TQDMProgressBar, EarlyStopping
 from lightning.pytorch.profilers import PyTorchProfiler, AdvancedProfiler
 from lightning.pytorch.tuner import Tuner
 from transformers import GPT2Config, RwkvConfig
@@ -36,7 +36,7 @@ if __name__ == "__main__":
         "--max_epochs", type=int, default=5, help="Number of epochs to pretrain for."
     )
     parser.add_argument(
-        "--batch_size", type=int, default=16, help="Batch size to use for pretraining."
+        "--batch_size", type=int, default=2, help="Batch size to use for pretraining."
     )
     parser.add_argument(
         "--updates",
@@ -138,7 +138,7 @@ if __name__ == "__main__":
                 ),
                 name="pretraining",
             ),
-            accumulate_grad_batches=32,
+            accumulate_grad_batches=4,
             profiler=profiler,
             limit_train_batches=train_max,
             limit_val_batches=val_max,
@@ -154,10 +154,6 @@ if __name__ == "__main__":
             pt_task,
             datamodule=dm,
         )
-
-        if trainer.interrupted and trainer.current_epoch == 0:
-            # Allow for model saves if we did past one epoch.
-            exit(0)
 
     # Save the model according to the HuggingFace API
     param_count = sum(p.numel() for p in pt_task.model.parameters()) / 1e6

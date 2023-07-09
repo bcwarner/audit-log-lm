@@ -13,6 +13,7 @@ from Sophia.sophia import SophiaG
 from model.data import EHRAuditDataset
 from model.vocab import EHRVocab
 
+
 def collate_fn(batch, n_positions=1024):
     input_ids_col = []
     labels_col = []
@@ -26,7 +27,7 @@ def collate_fn(batch, n_positions=1024):
                 value=-100,  # EOS token
             )
         elif input_ids.size(0) > n_positions:
-            input_ids = input_ids[: n_positions]
+            input_ids = input_ids[:n_positions]
 
         labels = input_ids.clone().detach()
         input_ids[labels == -100] = 0
@@ -40,6 +41,7 @@ def collate_fn(batch, n_positions=1024):
 def worker_fn(worker_id, seed=0):
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
+
 
 class EHRAuditPretraining(pl.LightningModule):
     def __init__(self, model):
@@ -161,6 +163,7 @@ class EHRAuditDataModule(pl.LightningDataModule):
                 log_name=log_name,
                 vocab=self.vocab,
                 timestamp_spaces=[
+                    self.config["timestamp_bins"]["spacing"],
                     self.config["timestamp_bins"]["min"],
                     self.config["timestamp_bins"]["max"],
                     self.config["timestamp_bins"]["bins"],
@@ -216,6 +219,7 @@ class EHRAuditDataModule(pl.LightningDataModule):
                 log_name=self.config["audit_log_file"],
                 vocab=self.vocab,
                 timestamp_spaces=[
+                    self.config["timestamp_bins"]["spacing"],
                     self.config["timestamp_bins"]["min"],
                     self.config["timestamp_bins"]["max"],
                     self.config["timestamp_bins"]["bins"],

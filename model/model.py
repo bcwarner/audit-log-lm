@@ -20,8 +20,19 @@ class EHRAuditGPT2(GPT2LMHeadModel):
         self.config = config
         self.vocab = vocab
         self.seq_len = config.n_positions - 1
-        self.loss = torch.nn.CrossEntropyLoss(ignore_index=-100)
-
+        self.loss = [
+            torch.nn.CrossEntropyLoss(ignore_index=-100),
+            torch.nn.CrossEntropyLoss(ignore_index=-100),
+        ]
+        # TODO: Abstract this part out
+        max_occur = 0.62
+        rest = 0.06
+        weights = [1] + [max_occur / rest for _ in range(1, len(vocab.field_ids[2]))]
+        self.loss.append(
+            torch.nn.CrossEntropyLoss(
+                ignore_index=-100, weight=torch.tensor(weights, dtype=torch.float32)
+            )
+        )
         field_names = self.vocab.field_names(include_special=False)
         self.field_ct = len(field_names)
         self.col_ids = list(range(self.field_ct))
@@ -135,7 +146,7 @@ class EHRAuditGPT2(GPT2LMHeadModel):
                 )
 
                 # Compute the loss for the current column.
-                lm_loss_field = self.loss(
+                lm_loss_field = self.loss[field_idx](
                     lm_logits_field.view(-1, global_ids_len),
                     lm_labels_local_field.view(-1),
                 )
@@ -144,7 +155,10 @@ class EHRAuditGPT2(GPT2LMHeadModel):
             # Compute the loss for each field.
             # Avoids a for loop, but fixes the # of fields.
             # Is this actually faster?
-            total_lm_loss = _compute_loss(0) + _compute_loss(1) + _compute_loss(2)
+            # losses = [_compute_loss(field_idx) for field_idx in range(3)]
+            total_lm_loss = (
+                _compute_loss(0) + _compute_loss(1) + _compute_loss(2)
+            )  # sum(losses)
 
             # Append the loss to the end of the outputs.
             outputs = (total_lm_loss,) + outputs
