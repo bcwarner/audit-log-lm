@@ -20,24 +20,16 @@ class EHRAuditGPT2(GPT2LMHeadModel):
         self.config = config
         self.vocab = vocab
         self.seq_len = config.n_positions - 1
+        field_names = self.vocab.field_names(include_special=False)
+
         self.loss = [
             torch.nn.CrossEntropyLoss(ignore_index=-100),
             torch.nn.CrossEntropyLoss(ignore_index=-100),
-        ]
-        field_names = self.vocab.field_names(include_special=False)
-        # TODO: Abstract this part out
-        max_occur = 0.65
-        rest = 0.05
-        weights = [rest / max_occur] + [
-            1 for _ in range(1, len(vocab.field_ids[field_names[2]]))
-        ]
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.loss.append(
             torch.nn.CrossEntropyLoss(
-                ignore_index=-100,  # weight=torch.tensor(weights, dtype=torch.float, device=device),
+                ignore_index=-100,
                 label_smoothing=0.1,
-            )
-        )
+            ),
+        ]
         self.field_ct = len(field_names)
         self.col_ids = list(range(self.field_ct))
         self.col_ids_labels = list(range(self.field_ct))
@@ -52,8 +44,6 @@ class EHRAuditGPT2(GPT2LMHeadModel):
                 range(field_idx - 1, self.seq_len, len(field_names))
             )
             if field_idx == 0:
-                # TODO: This appears to get the labels in the wrong location.
-                # Although it may actually be correct, since the labels are shifted
                 self.col_ids_labels[field_idx] = self.col_ids_labels[field_idx][1:]
 
             if len(self.col_ids[field_idx]) < len(
