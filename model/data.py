@@ -12,6 +12,32 @@ import pandas as pd
 from model.vocab import EHRVocab
 
 
+def timestamp_space_calculation(timestamp_spaces: List[str]):
+    timestamp_spaces_fn = getattr(np, timestamp_spaces[0])
+    timestamp_spaces_float = [
+        float(timestamp_spaces[1]),
+        float(timestamp_spaces[2]),
+        int(timestamp_spaces[3]),
+    ]
+    timestamp_spaces_cal = None
+    if timestamp_spaces_fn is np.linspace:
+        timestamp_spaces_cal = np.linspace(*timestamp_spaces_float)
+    elif timestamp_spaces_fn is np.logspace:
+        # Note: If the first value is zero, then we adjust so the bins will be [0], [1->...]
+        # This is because we do not have subsecond resolution.
+        space_attrs = [
+            np.log10(1)
+            if timestamp_spaces_float[0] < 1
+            else np.log10(timestamp_spaces_float[0]),
+            np.log10(
+                timestamp_spaces_float[1]
+            ),  # Ensure that the logspace maps to the values given.
+            timestamp_spaces_float[2],
+        ]
+        timestamp_spaces_cal = np.logspace(*space_attrs)
+    return timestamp_spaces_cal
+
+
 class EHRAuditDataset(Dataset):
     """
     Dataset for Epic EHR audit log data.
@@ -151,33 +177,7 @@ class EHRAuditDataset(Dataset):
 
         # TODO: Ensure that the vocab responds to timestamp_bins.spacing
         if self.timestamp_spaces is not None:
-            timestamp_spaces_fn = getattr(np, self.timestamp_spaces[0])
-            timestamp_spaces_float = [
-                float(self.timestamp_spaces[1]),
-                float(self.timestamp_spaces[2]),
-                int(self.timestamp_spaces[3]),
-            ]
-            timestamp_spaces_cal = None
-            if timestamp_spaces_fn is np.linspace:
-                timestamp_spaces_cal = np.linspace(*timestamp_spaces_float)
-            elif timestamp_spaces_fn is np.logspace:
-                # Note: If the first value is zero, then we adjust so the bins will be [0], [1->...]
-                # This is because we do not have subsecond resolution.
-                space_attrs = [
-                    np.log(1)
-                    if timestamp_spaces_float[0] < 1
-                    else np.log(timestamp_spaces_float[0]),
-                    np.log(
-                        timestamp_spaces_float[1]
-                    ),  # Ensure that the logspace maps to the values given.
-                    timestamp_spaces_float[2],
-                ]
-                timestamp_spaces_cal = np.logspace(*space_attrs)
-                timestamp_spaces_cal = (
-                    ([0] + timestamp_spaces_cal[:-1])
-                    if space_attrs[0] < 1
-                    else timestamp_spaces_cal
-                )
+            timestamp_spaces_cal = timestamp_space_calculation(self.timestamp_spaces)
 
             for idx in range(len(self.seqs)):
                 s = self.seqs[idx]

@@ -13,7 +13,7 @@ from matplotlib import pyplot as plt
 
 from model.model import EHRAuditGPT2
 from model.modules import EHRAuditPretraining, EHRAuditDataModule
-from model.data import EHRAuditDataset
+from model.data import timestamp_space_calculation
 from model.vocab import EHRVocab
 import tikzplotlib
 import numpy as np
@@ -478,12 +478,19 @@ class TimeEntropyExperiment(Experiment):
         time_deltas = sorted(self.time_delta_count.keys())
         # Combined plot
         fig, ax1 = plt.subplots()
+        # Get the timestamp bins.
+        timestamps = timestamp_spaces_calculation(
+            list(config["timestamp_bins"].values())
+        )
+        # Format as token (timestamp)
+        ax_labels = ["{} ({})".format(x, y) for x, y in zip(timestamps, time_deltas)]
         # Plot the frequency of each time delta with labels above the bars
         ax1.bar(
             time_deltas,
             [time_delta_to_freq[x] for x in time_deltas],
             label="Frequency",
         )
+        ax1.set_xticks(ax_labels)
         ax1.set_ylim(0, 1.1)
         # Print a frequency label above each bar
         for k, v in time_delta_to_freq.items():
@@ -614,6 +621,7 @@ if __name__ == "__main__":
     )
     model = EHRAuditGPT2.from_pretrained(model_path, vocab=vocab)
     model.to(device)
+    breakpoint()
 
     dm = EHRAuditDataModule(
         yaml_config_path=config_path,

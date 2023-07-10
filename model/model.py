@@ -24,16 +24,20 @@ class EHRAuditGPT2(GPT2LMHeadModel):
             torch.nn.CrossEntropyLoss(ignore_index=-100),
             torch.nn.CrossEntropyLoss(ignore_index=-100),
         ]
+        field_names = self.vocab.field_names(include_special=False)
         # TODO: Abstract this part out
-        max_occur = 0.62
-        rest = 0.06
-        weights = [1] + [max_occur / rest for _ in range(1, len(vocab.field_ids[2]))]
+        max_occur = 0.65
+        rest = 0.05
+        weights = [rest / max_occur] + [
+            1 for _ in range(1, len(vocab.field_ids[field_names[2]]))
+        ]
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.loss.append(
             torch.nn.CrossEntropyLoss(
-                ignore_index=-100, weight=torch.tensor(weights, dtype=torch.float32)
+                ignore_index=-100,  # weight=torch.tensor(weights, dtype=torch.float, device=device),
+                label_smoothing=0.1,
             )
         )
-        field_names = self.vocab.field_names(include_special=False)
         self.field_ct = len(field_names)
         self.col_ids = list(range(self.field_ct))
         self.col_ids_labels = list(range(self.field_ct))
