@@ -1,6 +1,8 @@
 # Evaluates the calculated entropy values for the test set.
 import argparse
+import inspect
 import os
+import sys
 from collections import defaultdict
 
 import scipy.stats
@@ -57,25 +59,6 @@ class Experiment:
 
     def samples_seen(self):
         return -1
-
-
-class EntropyExperiment(Experiment):
-    def __init__(self, config: dict, path_prefix: str, *args, **kwargs):
-        super().__init__(config, path_prefix, *args, **kwargs)
-        pass
-
-    def on_row(
-        self,
-        row=None,
-        row_loss=None,
-        prev_row=None,
-        prev_row_loss=None,
-        batch_no=None,
-    ):
-        pass
-
-    def on_finish(self):
-        pass
 
 
 class EntropySwitchesExperiment(Experiment):
@@ -490,7 +473,7 @@ class TimeEntropyExperiment(Experiment):
             [time_delta_to_freq[x] for x in time_deltas],
             label="Frequency",
         )
-        ax1.set_xticks(ax_labels)
+        ax1.set_xticks(range(len(time_deltas)), labels=ax_labels)
         ax1.set_ylim(0, 1.1)
         # Print a frequency label above each bar
         for k, v in time_delta_to_freq.items():
@@ -651,6 +634,16 @@ if __name__ == "__main__":
         experiments = [
             eval(exp)(config, path_prefix, vocab) for exp in args.exp.split(",")
         ]
+    elif "all" in args.exp:
+        # Get a list of all classes that sublcass Experiment in this file.
+        exp_classes = [
+            obj
+            for name, obj in inspect.getmembers(sys.modules[__name__])
+            if inspect.isclass(obj)
+            and issubclass(obj, Experiment)
+            and obj != Experiment
+        ]
+        experiments = [exp(config, path_prefix, vocab) for exp in exp_classes]
     else:
         experiments = [eval(args.exp)(config, path_prefix, vocab)]
 
