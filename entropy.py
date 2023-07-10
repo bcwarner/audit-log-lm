@@ -479,7 +479,7 @@ class TimeEntropyExperiment(Experiment):
         # Combined plot
         fig, ax1 = plt.subplots()
         # Get the timestamp bins.
-        timestamps = timestamp_spaces_calculation(
+        timestamps = timestamp_space_calculation(
             list(config["timestamp_bins"].values())
         )
         # Format as token (timestamp)
@@ -621,7 +621,6 @@ if __name__ == "__main__":
     )
     model = EHRAuditGPT2.from_pretrained(model_path, vocab=vocab)
     model.to(device)
-    breakpoint()
 
     dm = EHRAuditDataModule(
         yaml_config_path=config_path,
