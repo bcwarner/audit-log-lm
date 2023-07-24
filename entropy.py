@@ -2,12 +2,14 @@
 import argparse
 import inspect
 import os
+import pickle
 import sys
 from collections import defaultdict
 
 import scipy.stats
 import torch
 import yaml
+from matplotlib.axes import Axes
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from tabulate import tabulate
@@ -20,6 +22,7 @@ from model.vocab import EHRVocab
 import tikzplotlib
 import numpy as np
 
+# Fyi: this is a quick-and-dirty way of id'ing the columns, will need to be changed if the tabularization changes
 METRIC_NAME_COL = 0
 PAT_ID_COL = 1
 ACCESS_TIME_COL = 2
@@ -37,6 +40,15 @@ class Experiment:
         self.config = config
         self.path_prefix = path_prefix
         self.vocab = vocab
+
+    def _exp_cache_path(self):
+        return os.path.normpath(
+            os.path.join(
+                self.path_prefix,
+                self.config["results_path"],
+                f"exp_cache_{self.__class__.__name__}.pt",
+            )
+        )
 
     def on_row(
         self,
@@ -60,6 +72,9 @@ class Experiment:
     def samples_seen(self):
         return -1
 
+    def plot(self):
+        pass
+
 
 class EntropySwitchesExperiment(Experiment):
     def __init__(
@@ -67,13 +82,15 @@ class EntropySwitchesExperiment(Experiment):
         config: dict,
         path_prefix: str,
         vocab: EHRVocab,
+        path: str = None,
         *args,
+        **kwargs,
     ):
         """
         Measures the entropy of the nth switch during a session vs. the entropy.
         Also compares the entropy of all switches during a session vs. non-switches.
         """
-        super().__init__(config, path_prefix, vocab)
+        super().__init__(config, path_prefix, vocab, path, *args, **kwargs)
 
         self.switch_entropies_before: defaultdict[int, list] = defaultdict(
             list
@@ -81,6 +98,7 @@ class EntropySwitchesExperiment(Experiment):
         self.switch_entropies_after: defaultdict[int, list] = defaultdict(
             list
         )  # Switch no => list of entropies
+        self.switch_entropies_diff: defaultdict[int, list] = defaultdict(list)
         self.non_switch_entropies = []  # List of entropies for non-switches
         self.batch_ct = defaultdict(int)  # Batch no => current row
         self._samples_seen = 0
@@ -102,6 +120,7 @@ class EntropySwitchesExperiment(Experiment):
             switch_ct = self.batch_ct[batch_no]
             self.switch_entropies_before[switch_ct].append(prev_row_loss)
             self.switch_entropies_after[switch_ct].append(row_loss)
+            self.switch_entropies_diff[switch_ct].append(row_loss - prev_row_loss)
         else:
             self.non_switch_entropies.append(row_loss)
 
@@ -109,6 +128,26 @@ class EntropySwitchesExperiment(Experiment):
         return True
 
     def on_finish(self):
+        # Save the data
+        with open(self._exp_cache_path(), "wb") as f:
+            pickle.dump(
+                {
+                    "switch_entropies_before": self.switch_entropies_before,
+                    "switch_entropies_after": self.switch_entropies_after,
+                    "non_switch_entropies": self.non_switch_entropies,
+                    "switch_entropies_diff": self.switch_entropies_diff,
+                },
+                f,
+            )
+
+    def plot(self):
+        # Load the data
+        with open(self._exp_cache_path(), "rb") as f:
+            dat = pickle.load(f)
+        self.switch_entropies_before = dat["switch_entropies_before"]
+        self.switch_entropies_after = dat["switch_entropies_after"]
+        self.non_switch_entropies = dat["non_switch_entropies"]
+        self.switch_entropies_diff = dat["switch_entropies_diff"]
         # Plot the entropy of the nth switch during a session vs. the entropy.
         # Also compare the entropy of all switches during a session vs. non-switches.
         switch_entropies_before_mean = []
@@ -129,24 +168,42 @@ class EntropySwitchesExperiment(Experiment):
                 np.std(self.switch_entropies_before[switch_ct])
             )
 
-        # Plot the entropy of the nth switch during a session vs. the entropy.
+        # Plot the entropy of the nth switch during a session vs. the entropy as a violin plot
         x = np.arange(1, len(switch_entropies_before_mean) + 1)
-        max_n = 10
-        plt.errorbar(
-            x[:max_n],
-            switch_entropies_before_mean[:max_n],
-            yerr=switch_entropies_before_std[:max_n],
-            label="Before",
+        max_n = 15
+        plt.clf()
+        ax1: Axes = plt.subplot(3, 1, 1)
+        plt.violinplot(
+            [
+                self.switch_entropies_before[i]
+                for i in range(1, max_n + 1)
+                if i in self.switch_entropies_before
+            ],
+            showmeans=True,
         )
-        plt.errorbar(
-            x[:max_n],
-            switch_entropies_after_mean[:max_n],
-            yerr=switch_entropies_after_std[:max_n],
-            label="After",
+        ax1.set_title("Before Switch")
+        ax2 = plt.subplot(3, 1, 2)
+        plt.violinplot(
+            [
+                self.switch_entropies_after[i]
+                for i in range(1, max_n + 1)
+                if i in self.switch_entropies_after
+            ],
+            showmeans=True,
         )
-        plt.xlabel("Switch")
+        ax2.set_title("After Switch")
+        ax3 = plt.subplot(3, 1, 3)
+        plt.violinplot(
+            [
+                self.switch_entropies_diff[i]
+                for i in range(1, max_n + 1)
+                if i in self.switch_entropies_diff
+            ],
+            showmeans=True,
+        )
+        ax3.set_title("Difference")
+        plt.xlabel("Switch Number")
         plt.ylabel("Entropy")
-        plt.legend()
         res_path = os.path.normpath(
             os.path.join(self.path_prefix, self.config["results_path"])
         )
@@ -169,6 +226,7 @@ class EntropySwitchesExperiment(Experiment):
         )
         plt.xticks([1, 2, 3], ["Non-switch", "Before", "After"])
         plt.ylabel("Entropy")
+        plt.title("Entropy of Switches vs. Non-switches")
         plt.savefig(
             os.path.normpath(
                 os.path.join(res_path, "entropy_switches_vs_non_switches.png")
@@ -191,6 +249,7 @@ class EntropySwitchesExperiment(Experiment):
         plt.legend()
         plt.xlabel("Entropy")
         plt.ylabel("Probability")
+        plt.title("Entropy of Switches vs. Non-switches")
         plt.savefig(
             os.path.normpath(
                 os.path.join(res_path, "entropy_switches_vs_non_switches_cdf.png")
@@ -213,6 +272,7 @@ class EntropySwitchesExperiment(Experiment):
         plt.legend()
         plt.xlabel("Log entropy")
         plt.ylabel("Probability")
+        plt.title("Log entropy of Switches vs. Non-switches")
         plt.savefig(
             os.path.normpath(
                 os.path.join(res_path, "log_entropy_switches_vs_non_switches_cdf.png")
@@ -233,6 +293,7 @@ class EntropySwitchesExperiment(Experiment):
         return self._samples_seen
 
 
+"""
 class SecureChatEntropy(Experiment):
     def __init__(self, config, path_prefix, vocab):
         super().__init__(config, path_prefix, vocab)
@@ -274,6 +335,20 @@ class SecureChatEntropy(Experiment):
             self.entropy_present.append(row_loss)
 
     def on_finish(self):
+        with open(self._exp_cache_path(), "wb") as f:
+            pickle.dump(
+                {
+                    "entropy_by_type": self.entropy_by_type,
+                    "entropy_present": self.entropy_present,
+                },
+                f,
+            )
+
+    def plot(self):
+        with open(self._exp_cache_path(), "rb") as f:
+            dat = pickle.load(f)
+            self.entropy_by_type = dat["entropy_by_type"]
+            self.entropy_present = dat["entropy_present"]
         # Plot the entropy of each type of secure chat as a histogram.
         plt.clf()
         for token, name in zip(self.secure_chat_vocab, self.secure_chat_vocab_names):
@@ -322,6 +397,7 @@ class SecureChatEntropy(Experiment):
 
     def samples_seen(self):
         return self._samples_seen
+"""
 
 
 class PatientsSessionsEntropyExperiment(Experiment):
@@ -370,6 +446,21 @@ class PatientsSessionsEntropyExperiment(Experiment):
         self.entropies.append(row_loss)
 
     def on_finish(self):
+        with open(self._exp_cache_path(), "wb") as f:
+            pickle.dump(
+                {
+                    "entropy_by_patient_count_mean": self.entropy_by_patient_count_mean,
+                    "entropy_by_patient_count_std": self.entropy_by_patient_count_std,
+                },
+                f,
+            )
+
+    def plot(self):
+        with open(self._exp_cache_path(), "rb") as f:
+            dat = pickle.load(f)
+            self.entropy_by_patient_count_mean = dat["entropy_by_patient_count_mean"]
+            self.entropy_by_patient_count_std = dat["entropy_by_patient_count_std"]
+
         # Scatter plot of mean entropy by number of patients
         plt.clf()
         points = []
@@ -443,6 +534,20 @@ class TimeEntropyExperiment(Experiment):
         return self._samples_seen
 
     def on_finish(self):
+        with open(self._exp_cache_path(), "wb") as f:
+            pickle.dump(
+                {
+                    "entropies_by_time_delta": self.entropies_by_time_delta,
+                    "time_delta_count": self.time_delta_count,
+                },
+                f,
+            )
+
+    def plot(self):
+        with open(self._exp_cache_path(), "rb") as f:
+            dat = pickle.load(f)
+            self.entropies_by_time_delta = dat["entropies_by_time_delta"]
+            self.time_delta_count = dat["time_delta_count"]
         # Plot the entropy by time delta as a combined barchart showing the % frequency of each time delta
         # as well as their average entropy w/ error bars
         plt.clf()
@@ -761,8 +866,15 @@ if __name__ == "__main__":
         ):
             break
 
+    for p in exp_pbar:
+        p.close()
+
     for e in experiments:
         e.on_finish()
+
+    # Todo: Add an option to just load and plot the entropy values
+    for e in experiments:
+        e.plot()
 
     # Print statistics about the entropy values
     stats = {
