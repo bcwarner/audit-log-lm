@@ -658,6 +658,12 @@ if __name__ == "__main__":
         action="store_true",
         help="Run with the validation dataset instead of the test.",
     )
+    parser.add_argument(
+        "-p",
+        "--plot_only",
+        action="store_true",
+        help="Plot the results without running the experiment.",
+    )
     args = parser.parse_args()
     # Get the list of models from the config file
     config_path = os.path.normpath(
@@ -754,6 +760,10 @@ if __name__ == "__main__":
         experiments = [exp(config, path_prefix, vocab) for exp in exp_classes]
     else:
         experiments = [eval(args.exp)(config, path_prefix, vocab)]
+
+    if args.plot_only:
+        for exp in experiments:
+            exp.plot()
 
     print(f"Running experiments:")
     for exp in experiments:
