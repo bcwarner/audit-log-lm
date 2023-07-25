@@ -170,8 +170,9 @@ class EntropySwitchesExperiment(Experiment):
 
         # Plot the entropy of the nth switch during a session vs. the entropy as a violin plot
         x = np.arange(1, len(switch_entropies_before_mean) + 1)
-        max_n = 15
+        max_n = 10
         plt.clf()
+        plt.ylabel("Entropy")
         ax1: Axes = plt.subplot(3, 1, 1)
         plt.violinplot(
             [
@@ -203,7 +204,9 @@ class EntropySwitchesExperiment(Experiment):
         )
         ax3.set_title("Difference")
         plt.xlabel("Switch Number")
-        plt.ylabel("Entropy")
+        plt.suptitle("Entropy of Switches")
+        # Make the plot height bigger
+        plt.gcf().set_size_inches(10, 10)
         res_path = os.path.normpath(
             os.path.join(self.path_prefix, self.config["results_path"])
         )
