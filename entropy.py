@@ -73,7 +73,10 @@ class Experiment:
         return -1
 
     def plot(self):
-        pass
+        # Reset matplotlib figure size, etc.
+        plt.rcParams.update(plt.rcParamsDefault)
+        plt.clf()
+        plt.gcf().set_size_inches(5, 5)
 
 
 class EntropySwitchesExperiment(Experiment):
@@ -141,6 +144,7 @@ class EntropySwitchesExperiment(Experiment):
             )
 
     def plot(self):
+        super().plot()
         # Load the data
         with open(self._exp_cache_path(), "rb") as f:
             dat = pickle.load(f)
@@ -172,7 +176,6 @@ class EntropySwitchesExperiment(Experiment):
         x = np.arange(1, len(switch_entropies_before_mean) + 1)
         max_n = 10
         plt.clf()
-        plt.ylabel("Entropy")
         ax1: Axes = plt.subplot(3, 1, 1)
         plt.violinplot(
             [
@@ -182,6 +185,7 @@ class EntropySwitchesExperiment(Experiment):
             ],
             showmeans=True,
         )
+        ax1.set_ylabel("Entropy")
         ax1.set_title("Before Switch")
         ax2 = plt.subplot(3, 1, 2)
         plt.violinplot(
@@ -192,6 +196,7 @@ class EntropySwitchesExperiment(Experiment):
             ],
             showmeans=True,
         )
+        ax2.set_ylabel("Entropy")
         ax2.set_title("After Switch")
         ax3 = plt.subplot(3, 1, 3)
         plt.violinplot(
@@ -202,15 +207,16 @@ class EntropySwitchesExperiment(Experiment):
             ],
             showmeans=True,
         )
+        ax3.set_ylabel("Entropy")
         ax3.set_title("Difference")
         plt.xlabel("Switch Number")
         plt.suptitle("Entropy of Switches")
         # Make the plot height bigger
-        plt.gcf().set_size_inches(10, 10)
+        plt.gcf().set_size_inches(5, 10)
         res_path = os.path.normpath(
             os.path.join(self.path_prefix, self.config["results_path"])
         )
-        plt.savefig(os.path.normpath(os.path.join(res_path, "entropy_switches.png")))
+        plt.savefig(os.path.normpath(os.path.join(res_path, "entropy_switches.svg")))
 
         switch_entropies_before_all = []
         switch_entropies_after_all = []
@@ -220,6 +226,7 @@ class EntropySwitchesExperiment(Experiment):
 
         # Also compare the entropy of all switches during a session vs. non-switches.
         plt.clf()
+        plt.gcf().set_size_inches(5, 5)
         plt.boxplot(
             [
                 self.non_switch_entropies,
@@ -232,11 +239,11 @@ class EntropySwitchesExperiment(Experiment):
         plt.title("Entropy of Switches vs. Non-switches")
         plt.savefig(
             os.path.normpath(
-                os.path.join(res_path, "entropy_switches_vs_non_switches.png")
+                os.path.join(res_path, "entropy_switches_vs_non_switches.svg")
             )
         )
 
-        # Make a probability distribution funciton of the entropy of switches vs. non-switches using matplotlib
+        # Make a probability distribution function of the entropy of switches vs. non-switches using matplotlib
         plt.clf()
         plt.hist(
             [
@@ -255,7 +262,7 @@ class EntropySwitchesExperiment(Experiment):
         plt.title("Entropy of Switches vs. Non-switches")
         plt.savefig(
             os.path.normpath(
-                os.path.join(res_path, "entropy_switches_vs_non_switches_cdf.png")
+                os.path.join(res_path, "entropy_switches_vs_non_switches_cdf.svg")
             )
         )
 
@@ -278,7 +285,7 @@ class EntropySwitchesExperiment(Experiment):
         plt.title("Log entropy of Switches vs. Non-switches")
         plt.savefig(
             os.path.normpath(
-                os.path.join(res_path, "log_entropy_switches_vs_non_switches_cdf.png")
+                os.path.join(res_path, "log_entropy_switches_vs_non_switches_cdf.svg")
             )
         )
 
@@ -377,7 +384,7 @@ class SecureChatEntropy(Experiment):
             os.path.join(self.path_prefix, self.config["results_path"])
         )
         plt.savefig(
-            os.path.normpath(os.path.join(res_path, "entropy_secure_chat_types.png"))
+            os.path.normpath(os.path.join(res_path, "entropy_secure_chat_types.svg"))
         )
 
         # Plot the entropy of each type of secure chat as a boxplot.
@@ -394,7 +401,7 @@ class SecureChatEntropy(Experiment):
         plt.ylabel("Entropy")
         plt.savefig(
             os.path.normpath(
-                os.path.join(res_path, "entropy_secure_chat_types_boxplot.png")
+                os.path.join(res_path, "entropy_secure_chat_types_boxplot.svg")
             )
         )
 
@@ -459,6 +466,7 @@ class PatientsSessionsEntropyExperiment(Experiment):
             )
 
     def plot(self):
+        super().plot()
         with open(self._exp_cache_path(), "rb") as f:
             dat = pickle.load(f)
             self.entropy_by_patient_count_mean = dat["entropy_by_patient_count_mean"]
@@ -473,7 +481,7 @@ class PatientsSessionsEntropyExperiment(Experiment):
         x, y = zip(*points)
         # Make x the log scale
         plt.scatter(x, y)
-        plt.xlabel("Number of Patients")
+        plt.xlabel("Patients Interacted With During EHR Session")
         plt.ylabel("Mean Entropy")
         plt.gca().set_xscale("log")
         # Trendline w/ correlation
@@ -493,14 +501,16 @@ class PatientsSessionsEntropyExperiment(Experiment):
         r = np.corrcoef(x_filt, y_filt)[0, 1]
         x_ = np.linspace(10, max(x_), 100)
         plt.plot(x_, p(x_), "g--", label="10+ Patients (r={:.2f})".format(r))
-        plt.title("Mean Entropy by Number of Patients in a Session")
+        plt.title(
+            "Mean Entropy by Number of Patients\n Interacted With Per EHR Session"
+        )
         plt.legend()
         plt.savefig(
             os.path.normpath(
                 os.path.join(
                     self.path_prefix,
                     self.config["results_path"],
-                    "entropy_by_patient_count.png",
+                    "entropy_by_patient_count.svg",
                 )
             )
         )
@@ -547,6 +557,7 @@ class TimeEntropyExperiment(Experiment):
             )
 
     def plot(self):
+        super().plot()
         with open(self._exp_cache_path(), "rb") as f:
             dat = pickle.load(f)
             self.entropies_by_time_delta = dat["entropies_by_time_delta"]
@@ -617,7 +628,7 @@ class TimeEntropyExperiment(Experiment):
                 os.path.join(
                     self.path_prefix,
                     self.config["results_path"],
-                    "entropy_by_time_delta.png",
+                    "entropy_by_time_delta.svg",
                 )
             )
         )
@@ -764,6 +775,7 @@ if __name__ == "__main__":
     if args.plot_only:
         for exp in experiments:
             exp.plot()
+        sys.exit()
 
     print(f"Running experiments:")
     for exp in experiments:
@@ -913,7 +925,7 @@ if __name__ == "__main__":
             os.path.join(
                 path_prefix,
                 config["results_path"],
-                f"entropy_{len(ce_values)}_{args.exp_suffix}.png",
+                f"entropy_{len(ce_values)}_{args.exp_suffix}.svg",
             )
         )
     )
@@ -939,7 +951,7 @@ if __name__ == "__main__":
             os.path.join(
                 path_prefix,
                 config["results_path"],
-                f"perplexity_{len(ce_values)}_{args.exp_suffix}.png",
+                f"perplexity_{len(ce_values)}_{args.exp_suffix}.svg",
             )
         )
     )
