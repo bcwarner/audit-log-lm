@@ -860,8 +860,8 @@ if __name__ == "__main__":
 
                 # Calculate the cross entropy
                 loss, _, _ = model(input_ids_c.to(device), labels=labels_c.to(device))
-                # Divide the cross-entropy by the number of tokens in the row to get avg. token CE
-                avg_loss = loss.item() / row_len
+                # Loss is averaged over the row in TabularLoss
+                avg_loss = loss.item() #
                 ce_current.append(avg_loss)
                 for j in range(len(experiments)):
                     if should_on_batch[j]:
