@@ -77,7 +77,7 @@ class EHRVocab:
     def global_to_token(self, global_id):
         if global_id not in self.global_tokens:
             return 0
-        return self.global_tokens[global_id][2] if global_id != 0 else 0
+        return self.global_tokens[global_id] if global_id != 0 else (0, "special", 0)
 
     def globals_to_locals(self, global_ids: torch.Tensor):
         # Iterate over the elements of the tensor and convert them to local IDs.
@@ -102,6 +102,43 @@ class EHRVocab:
 
     def __len__(self):
         return len(self.global_tokens)
+
+# HuggingFace-style tokenizer implementing barebones tokenization for the EHR audit log dataset.
+class EHRAuditTokenizer:
+    def __init__(self, vocab: EHRVocab):
+        self.vocab = vocab
+
+    def encode(self, text):
+        raise NotImplementedError("This is not implemented yet.")
+
+    def decode(self,
+               logits: torch.FloatTensor,
+               field_ids: List = None,
+               output_type: type = None):
+        fn = len(self.vocab.field_names())
+        if field_ids is None:
+            field_ids = [(x + 1) % fn for x in range(fn)]
+        if output_type is None:
+            output_type = pd.DataFrame
+
+        # For each field, select the subset of the logits that correspond to that field.
+        tokens = [None for _ in range(logits.size(1))]
+        field_logit_pos = [self.vocab.field_ids[self.vocab.field_names()[x]] for x in range(fn)]
+        for i in range(logits.size(1)):
+            # Take the argmax of that subset, and then convert the argmax to a token.
+            tokens[i] = logits[:, i, field_logit_pos[field_ids[i]]].argmax(dim=2)
+
+        # Reshape the tokens into rows of fn columns.
+        tokens = torch.stack(tokens, dim=1).reshape(-1, fn)
+        # Iterate through each row and convert the global IDs to local IDs.
+        rows = []
+        for i in range(tokens.shape[0]):
+            row_dict = dict()
+            for j in range(tokens.shape[1]):
+                field, value, _ = self.vocab.global_to_token(tokens[i, j])
+                row_dict[field] = value
+            rows.append(row_dict)
+        return output_type(rows)
 
 
 if __name__ == "__main__":

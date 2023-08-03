@@ -12,7 +12,7 @@ import pandas as pd
 from model.vocab import EHRVocab
 
 
-def timestamp_space_calculation(timestamp_spaces: List[str]):
+def timestamp_space_calculation(timestamp_spaces: List[str | float]):
     timestamp_spaces_fn = getattr(np, timestamp_spaces[0])
     timestamp_spaces_float = [
         float(timestamp_spaces[1]),
