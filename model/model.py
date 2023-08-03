@@ -1,4 +1,5 @@
 # Contains models for the EHR audit log dataset.
+from typing import List
 
 import torch
 from transformers import RwkvForCausalLM, RwkvConfig
@@ -13,30 +14,35 @@ from model.vocab import EHRVocab
 # - Transformer-XL
 # - RWKV
 
-
-class EHRAuditGPT2(GPT2LMHeadModel):
-    def __init__(self, config, vocab: EHRVocab):
-        super().__init__(config)
-        self.config = config
-        self.vocab = vocab
+# May want to try using _WeightedLoss, may have optimization benefits.
+class TabularLoss(torch.nn.Module):
+    def __init__(self,
+                 config: GPT2Config,
+                 vocab: EHRVocab,
+                 smoothing: List = None,
+                 reduction: str = "mean"):
+        super().__init__()
         self.seq_len = config.n_positions - 1
+        self.vocab = vocab
         field_names = self.vocab.field_names(include_special=False)
 
-        self.loss = [
-            torch.nn.CrossEntropyLoss(ignore_index=-100),
-            torch.nn.CrossEntropyLoss(ignore_index=-100),
-            torch.nn.CrossEntropyLoss(
-                ignore_index=-100,
-                label_smoothing=0.1,
-            ),
-        ]
         self.field_ct = len(field_names)
+        self.loss = list(range(self.field_ct))
         self.col_ids = list(range(self.field_ct))
         self.col_ids_labels = list(range(self.field_ct))
         self.global_ids_min = list(range(self.field_ct))
         self.global_ids_max = list(range(self.field_ct))
         self.global_ids_len = list(range(self.field_ct))
+        self.reduction = reduction
+        if reduction not in ["mean", "none"]:
+            raise NotImplementedError(f"Reduction {reduction} not implemented.")
+
         for field_idx, field_name in enumerate(field_names):
+            self.loss[field_idx] = torch.nn.CrossEntropyLoss(
+                ignore_index=-100,
+                reduction="none",  # Reduction is handled later since seq length might not be even.
+                label_smoothing=smoothing[field_idx] if smoothing else 0.0,
+            )
             self.col_ids[field_idx] = list(
                 range(field_idx, self.seq_len, len(field_names))
             )
@@ -47,7 +53,7 @@ class EHRAuditGPT2(GPT2LMHeadModel):
                 self.col_ids_labels[field_idx] = self.col_ids_labels[field_idx][1:]
 
             if len(self.col_ids[field_idx]) < len(
-                self.col_ids_labels[field_idx]
+                    self.col_ids_labels[field_idx]
             ):  # Ensure the lengths are the same.
                 self.col_ids[field_idx].append(
                     self.col_ids[field_idx][-1] + len(field_names)
@@ -68,6 +74,71 @@ class EHRAuditGPT2(GPT2LMHeadModel):
         self.global_ids_min = torch.tensor(self.global_ids_min, dtype=torch.long)
         self.global_ids_max = torch.tensor(self.global_ids_max, dtype=torch.long)
         self.global_ids_len = torch.tensor(self.global_ids_len, dtype=torch.long)
+
+    def forward(self, lm_logits, labels):
+        # Shift so that tokens < n predict n
+        # We don't need to remove the special labels here as they are not included here.
+        shift_logits = lm_logits[..., :-1, :]
+        shift_labels = labels[..., 1:]
+
+        # Shift so that tokens < n predict n
+        # We don't need to remove the special labels here as they are not included here.
+        shift_logits = lm_logits[..., :-1, :]  # .contiguous()
+        shift_labels = labels[..., 1:]  # .contiguous()
+
+        # Iterate through each of the fields and compute the loss over each column.
+        def _compute_loss(field_idx):
+            # Get the locations of the current column in the input.
+            col_ids = self.col_ids[field_idx]
+
+            # Get the locations of the current column in the labels.
+            col_ids_labels = self.col_ids_labels[field_idx]
+
+            # Get the IDs of the logits for the current column.
+            global_ids_min = self.global_ids_min[field_idx]
+            global_ids_max = self.global_ids_max[field_idx]
+            global_ids_len = self.global_ids_len[field_idx]
+
+            # Select the relevant logits.
+            lm_logits_field = shift_logits[
+                              :, col_ids, global_ids_min:global_ids_max
+                              ]
+
+            # Select the relevant labels.
+            lm_labels_field = shift_labels[:, col_ids_labels]
+
+            lm_labels_local_field_subbed = torch.clamp(
+                torch.sub(lm_labels_field, global_ids_min), min=0
+            )
+            lm_labels_local_field = torch.where(
+                lm_labels_field == -100, -100, lm_labels_local_field_subbed
+            )
+
+            # Compute the loss for the current column.
+            lm_loss_field = self.loss[field_idx](
+                lm_logits_field.transpose(2, 1),
+                lm_labels_local_field,
+            )
+            return lm_loss_field
+
+        losses = torch.stack([_compute_loss(field_idx) for field_idx in range(self.field_ct)], dim=1)
+        if self.reduction == "none":
+            # Interleave the losses in order of column.
+            total_lm_loss = torch.flatten(losses.transpose(2, 1), start_dim=1)
+        elif self.reduction == "mean":
+            # Take the mean across
+            total_lm_loss = torch.mean(losses[losses > 0])
+        else:
+            raise NotImplementedError(f"Reduction {self.reduction} not implemented.")
+        return total_lm_loss
+
+
+class EHRAuditGPT2(GPT2LMHeadModel):
+    def __init__(self, config, vocab: EHRVocab):
+        super().__init__(config)
+        self.config = config
+        self.vocab = vocab
+        self.loss = TabularLoss(config, vocab, reduction="mean")
 
     def forward(
         self,
@@ -106,53 +177,8 @@ class EHRAuditGPT2(GPT2LMHeadModel):
 
         outputs = (lm_logits,) + transformer_outputs[1:]
         if labels is not None:
-            # Shift so that tokens < n predict n
-            # We don't need to remove the special labels here as they are not included here.
-            shift_logits = lm_logits[..., :-1, :]  # .contiguous()
-            shift_labels = labels[..., 1:]  # .contiguous()
-
-            # Iterate through each of the fields and compute the loss over each column.
-            def _compute_loss(field_idx):
-                # Get the locations of the current column in the input.
-                col_ids = self.col_ids[field_idx]
-
-                # Get the locations of the current column in the labels.
-                col_ids_labels = self.col_ids_labels[field_idx]
-
-                # Get the IDs of the logits for the current column.
-                global_ids_min = self.global_ids_min[field_idx]
-                global_ids_max = self.global_ids_max[field_idx]
-                global_ids_len = self.global_ids_len[field_idx]
-
-                # Select the relevant logits.
-                lm_logits_field = shift_logits[
-                    :, col_ids, global_ids_min:global_ids_max
-                ]
-
-                # Select the relevant labels.
-                lm_labels_field = shift_labels[:, col_ids_labels]
-
-                lm_labels_local_field_subbed = torch.clamp(
-                    torch.sub(lm_labels_field, global_ids_min), min=0
-                )
-                lm_labels_local_field = torch.where(
-                    lm_labels_field == -100, -100, lm_labels_local_field_subbed
-                )
-
-                # Compute the loss for the current column.
-                lm_loss_field = self.loss[field_idx](
-                    lm_logits_field.view(-1, global_ids_len),
-                    lm_labels_local_field.view(-1),
-                )
-                return lm_loss_field
-
-            # Compute the loss for each field.
-            # Avoids a for loop, but fixes the # of fields.
-            # Is this actually faster?
-            # losses = [_compute_loss(field_idx) for field_idx in range(3)]
-            total_lm_loss = (
-                _compute_loss(0) + _compute_loss(1) + _compute_loss(2)
-            )  # sum(losses)
+            # Compute the loss.
+            total_lm_loss = self.loss(lm_logits, labels)
 
             # Append the loss to the end of the outputs.
             outputs = (total_lm_loss,) + outputs
