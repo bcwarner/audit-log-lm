@@ -71,7 +71,23 @@ if __name__ == "__main__":
         default=None,
         help="Converts a Lightning checkpoint to a HuggingFace checkpoint.",
     )
+    parser.add_argument(
+        "--tf32",
+        default=True,
+        action="store",
+        help="Whether to use tf32 precision on Ampere GPUs.",
+    )
+    parser.add_argument(
+        "--layers",
+        type=int,
+        default=6,
+        help="Number of layers to use for the model.",
+    )
     args = parser.parse_args()
+
+    # Is this an Ampere GPU?
+    if torch.cuda.is_available() and torch.cuda.get_device_capability()[0] >= 8:
+        torch.backends.cuda.matmul.allow_tf32 = args.tf32
 
     # Load configuration and vocab
     config_path = os.path.normpath(
@@ -97,7 +113,7 @@ if __name__ == "__main__":
             vocab_size=len(vocab),
             n_positions=1024,
             n_head=6,
-            n_layer=6,
+            n_layer=args.layers,
         ),
     }
 
@@ -130,6 +146,10 @@ if __name__ == "__main__":
         val_max = args.subset if args.profile is False else 100
         test_max = args.subset if args.profile is False else 100
 
+        param_count = sum(p.numel() for p in pt_task.model.parameters()) / 1e6
+        todays_date = datetime.now().strftime("%Y-%m-%d")
+        param_name = f"{args.model}/{param_count:.1f}M/{todays_date}".replace(".", "_")
+
         trainer = pl.Trainer(
             max_epochs=args.max_epochs,
             logger=pl.loggers.TensorBoardLogger(
@@ -137,6 +157,7 @@ if __name__ == "__main__":
                     os.path.join(path_prefix, config["log_path"])
                 ),
                 name="pretraining",
+                version=param_name.replace("/", "_"),
             ),
             accumulate_grad_batches=4,
             profiler=profiler,
@@ -156,9 +177,6 @@ if __name__ == "__main__":
         )
 
     # Save the model according to the HuggingFace API
-    param_count = sum(p.numel() for p in pt_task.model.parameters()) / 1e6
-    todays_date = datetime.now().strftime("%Y-%m-%d")
-    param_name = f"{args.model}/{param_count:.1f}M/{todays_date}".replace(".", "_")
     fname = os.path.normpath(
         os.path.join(path_prefix, config["pretrained_model_path"], param_name)
     )
