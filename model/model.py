@@ -2,7 +2,7 @@
 from typing import List
 
 import torch
-from transformers import RwkvForCausalLM, RwkvConfig
+from transformers import RwkvForCausalLM, RwkvConfig, TransfoXLLMHeadModel, PretrainedConfig
 from transformers import GPT2LMHeadModel, GPT2Config
 
 from model.vocab import EHRVocab
@@ -17,7 +17,7 @@ from model.vocab import EHRVocab
 # May want to try using _WeightedLoss, may have optimization benefits.
 class TabularLoss(torch.nn.Module):
     def __init__(self,
-                 config: GPT2Config,
+                 config: PretrainedConfig,
                  vocab: EHRVocab,
                  smoothing: List = None,
                  reduction: str = "mean"):
@@ -185,6 +185,56 @@ class EHRAuditGPT2(GPT2LMHeadModel):
 
         return outputs
 
+class EHRAuditTransformerXL(TransfoXLLMHeadModel):
+    def __init__(self, config, vocab: EHRVocab):
+        super().__init__(config)
+        self.config = config
+        self.vocab = vocab
+        self.loss = TabularLoss(config, vocab, reduction="mean")
+
+    def forward(
+        self,
+        input_ids=None,
+        labels=None,
+        attention_mask=None,
+        mems=None,
+        perm_mask=None,
+        target_mapping=None,
+        head_mask=None,
+        inputs_embeds=None,
+        use_cache=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+        should_break=False,
+        **kwargs
+    ):
+        transformer_outputs = self.transformer(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            mems=mems,
+            perm_mask=perm_mask,
+            target_mapping=target_mapping,
+            head_mask=head_mask,
+            inputs_embeds=inputs_embeds,
+            use_cache=use_cache,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+            **kwargs
+        )
+        hidden_states = transformer_outputs[0]
+        lm_logits = self.lm_head(hidden_states)
+
+        outputs = (lm_logits,) + transformer_outputs[1:]
+        if labels is not None:
+            # Compute the loss.
+            total_lm_loss = self.loss(lm_logits, labels)
+
+            # Append the loss to the end of the outputs.
+            outputs = (total_lm_loss,) + outputs
+
+        return outputs
 
 class EHRAuditRWKV(RwkvForCausalLM):
     def __init__(self, config):
