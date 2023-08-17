@@ -83,6 +83,18 @@ if __name__ == "__main__":
         default=6,
         help="Number of layers to use for the model.",
     )
+    parser.add_argument(
+        "--heads",
+        type=int,
+        default=6,
+        help="Number of heads to use for the model.",
+    )
+    parser.add_argument(
+        "--continue_from",
+        type=str,
+        default=None,
+        help="Path to a checkpoint to continue training from.",
+    )
     args = parser.parse_args()
 
     # Is this an Ampere GPU?
@@ -112,7 +124,7 @@ if __name__ == "__main__":
         "gpt2": GPT2Config(
             vocab_size=len(vocab),
             n_positions=1024,
-            n_head=6,
+            n_head=args.heads,
             n_layer=args.layers,
         ),
     }
@@ -174,6 +186,7 @@ if __name__ == "__main__":
         trainer.fit(
             pt_task,
             datamodule=dm,
+            ckpt_path=args.continue_from,
         )
 
     # Save the model according to the HuggingFace API
