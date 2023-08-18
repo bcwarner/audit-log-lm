@@ -4,6 +4,7 @@ from typing import List
 import torch
 from transformers import RwkvForCausalLM, RwkvConfig, TransfoXLLMHeadModel, PretrainedConfig
 from transformers import GPT2LMHeadModel, GPT2Config
+from transformers.modeling_outputs import CausalLMOutputWithCrossAttentions
 
 from model.vocab import EHRVocab
 
@@ -175,15 +176,24 @@ class EHRAuditGPT2(GPT2LMHeadModel):
         hidden_states = transformer_outputs[0]
         lm_logits = self.lm_head(hidden_states)
 
-        outputs = (lm_logits,) + transformer_outputs[1:]
+        total_lm_loss = None
         if labels is not None:
             # Compute the loss.
             total_lm_loss = self.loss(lm_logits, labels)
 
             # Append the loss to the end of the outputs.
-            outputs = (total_lm_loss,) + outputs
+        if not return_dict:
+            outputs = (lm_logits,) + transformer_outputs[1:]
+            return (total_lm_loss,) + outputs if total_lm_loss is not None else outputs
 
-        return outputs
+        return CausalLMOutputWithCrossAttentions(
+            loss=total_lm_loss,
+            logits=lm_logits,
+            past_key_values=transformer_outputs.past_key_values,
+            hidden_states=transformer_outputs.hidden_states,
+            attentions=transformer_outputs.attentions,
+            cross_attentions=transformer_outputs.cross_attentions,
+        )
 
 class EHRAuditTransformerXL(TransfoXLLMHeadModel):
     def __init__(self, config, vocab: EHRVocab):

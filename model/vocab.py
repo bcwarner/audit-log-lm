@@ -9,6 +9,8 @@ from typing import Dict, List
 import numpy as np
 import torch
 import yaml
+import pandas as pd
+from transformers import LogitsProcessor
 
 
 class EHRVocab:
@@ -77,7 +79,7 @@ class EHRVocab:
     def global_to_token(self, global_id):
         if global_id not in self.global_tokens:
             return 0
-        return self.global_tokens[global_id][2] if global_id != 0 else 0
+        return self.global_tokens[global_id] if global_id != 0 else (0, "special", 0)
 
     def globals_to_locals(self, global_ids: torch.Tensor):
         # Iterate over the elements of the tensor and convert them to local IDs.
@@ -103,6 +105,76 @@ class EHRVocab:
     def __len__(self):
         return len(self.global_tokens)
 
+# HuggingFace-style tokenizer implementing barebones tokenization for the EHR audit log dataset.
+class EHRAuditTokenizer:
+    def __init__(self, vocab: EHRVocab, timestamp_spaces_cal: List[float] = None):
+        self.vocab = vocab
+        self.timestamp_spaces_cal = timestamp_spaces_cal
+
+    def encode(self, df: pd.DataFrame):
+        raise NotImplementedError("This is not implemented yet.")
+
+    def decode(self,
+               token_ids: List[int],
+               output_type: type = None):
+        """
+        Decodes a list of token IDs into a list of field-value pairs and converts to the desired output type
+        :param token_ids: List of token IDs to decode.
+        :param output_type: Output type to convert to. If None, defaults to a Pandas DataFrame.
+        :return: A list of field-value pairs.
+        """
+        fn = len(self.vocab.field_names(include_special=False))
+        if output_type is None:
+            output_type = pd.DataFrame
+
+        rows = []
+        row_dict = dict()
+
+        for i in range(len(token_ids)):
+            field, value, field_id = self.vocab.global_to_token(token_ids[i])
+            if field == "ACCESS_TIME" and self.timestamp_spaces_cal is not None:
+                # Dequantize the access time. field_id starts at 1.
+                row_dict[field] = self.timestamp_spaces_cal[field_id - 1] if field_id != 1 else "<= 1"
+            else:
+                row_dict[field] = value
+            if len(row_dict) == fn:
+                rows.append(row_dict)
+                row_dict = dict()
+        return output_type(rows)
+
+    def batch_decode(self,
+                     token_ids: List[List[int]],
+                     output_type: type = None):
+        """
+        Decodes a list of lists of token IDs into a list of lists of field-value pairs and converts to the desired output type
+        :param token_ids: List of lists of token IDs to decode.
+        :param output_type: Output type to convert to. If None, defaults to a Pandas DataFrame.
+        :return: A list of lists of field-value pairs.
+        """
+        if output_type is None:
+            output_type = pd.DataFrame
+
+        return [self.decode(b, output_type=output_type) for b in token_ids]
+
+class EHRAuditLogitsProcessor(LogitsProcessor):
+    def __init__(self, vocab: EHRVocab):
+        self.vocab = vocab
+        self.fields = self.vocab.field_names(include_special=False)
+        self.fn = len(self.vocab.field_names(include_special=False))
+
+
+    def __call__(self, input_ids: torch.Tensor, logits: torch.Tensor):
+        # For each equivalent row in the vocab, we want to -inf out the logits that are outside the field range.
+        # Assumes that each field in the batch is aligned.
+        f = self.vocab.global_tokens[input_ids[:, -1].item()][0]
+        next_field = (self.fields.index(f) + 1) % self.fn
+        next_field_start = self.vocab.field_ids[self.fields[next_field]][0]
+        next_field_end = self.vocab.field_ids[self.fields[next_field]][-1]
+        logits[:, :next_field_start] = float("-inf")
+        logits[:, next_field_end:] = float("-inf")
+        return logits
+
+
 
 if __name__ == "__main__":
     # Load the config
@@ -123,9 +195,6 @@ if __name__ == "__main__":
 
     # This is where we'll actually build the vocab and then save it.
     categorical_column_opts = dict()
-
-    # Segfault otherwise
-    import pandas as pd
 
     # METRIC_NAME
     df = pd.read_excel(
