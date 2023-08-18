@@ -55,6 +55,27 @@ if __name__ == "__main__":
         default=1,
         help="Number of audit logs to use for the demo.",
     )
+    parser.add_argument(
+        "--search",
+        "-s",
+        type=str,
+        default="greedy",
+        help="Search method to use for decoding. If beam, :k is the beam size.",
+    )
+    parser.add_argument(
+        "--window_size",
+        "-w",
+        type=int,
+        default=30,
+        help="Window size to use for context.",
+    )
+    parser.add_argument(
+        "--predict_size",
+        "-p",
+        type=int,
+        default=20,
+        help="Number of actions to predict.",
+    )
     args = parser.parse_args()
     # Get the list of models from the config file
     config_path = os.path.normpath(
@@ -121,12 +142,22 @@ if __name__ == "__main__":
     else:
         dl = dm.test_dataloader()
 
-    tk = EHRAuditTokenizer(vocab)
+    tk = EHRAuditTokenizer(vocab, timestamp_spaces_cal=timestamp_space_calculation([
+                    config["timestamp_bins"]["spacing"],
+                    config["timestamp_bins"]["min"],
+                    config["timestamp_bins"]["max"],
+                    config["timestamp_bins"]["bins"],
+                ]))
 
-    window_size = 30  # 30 action window
-    predict_size = window_size * 2  # input + output
+    row_len = len(vocab.field_ids) - 1  # Exclude special fields
+
+    window_size = args.window_size * row_len
+    predict_size = (args.window_size + args.predict_size) * row_len
     proc_count = 0
-    for batch in dl:
+    for idx, batch in enumerate(dl):
+        if idx < args.start:
+            continue
+
         input_ids, labels = batch
         with torch.no_grad():
             # Find the eos index
@@ -138,7 +169,6 @@ if __name__ == "__main__":
 
             ce_current = []
 
-            row_len = len(vocab.field_ids) - 1  # Exclude special fields
             row_count = (eos_index - 1) // row_len
             if row_count <= predict_size // row_len:  # Not applicable
                 continue
@@ -148,14 +178,6 @@ if __name__ == "__main__":
             input_ids_c = input_ids_c[:, :(window_size + 1)]
 
             # Stack them to the beam size
-            # beam_size = 1
-            # input_ids_c = input_ids_c.repeat(beam_size, input_ids.size(1)).to(device)
-            #
-            # beam_scorer = BeamSearchScorer(
-            #     batch_size=1,
-            #     num_beams=beam_size,
-            #     device=device,
-            # )
 
             # Stopping criteria, just the second window
             sc_list = StoppingCriteriaList([MaxLengthCriteria(predict_size)])
@@ -171,11 +193,48 @@ if __name__ == "__main__":
                 model.generation_config.pad_token_id = model.generation_config.eos_token_id
 
             # Generate the outputs from the window.
-            outputs = model.greedy_search(
-                input_ids_c.to(device),
-                stopping_criteria=sc_list,
-                logits_processor=logits_processor,
-            )
+            if args.search == "greedy":
+                outputs = model.greedy_search(
+                    input_ids_c.to(device),
+                    stopping_criteria=sc_list,
+                    logits_processor=logits_processor,
+                )
+            elif args.search == "sample":
+                outputs = model.sample(
+                    input_ids_c.to(device),
+                    stopping_criteria=sc_list,
+                    logits_processor=logits_processor,
+                )
+            elif "contrastive" in args.search:
+                opts = args.search.split(":")
+                if len(opts) == 1:
+                    opts.append("5")
+                if len(opts) <= 2:
+                    opts.append("0.1")
+                outputs = model.contrastive_search(
+                    input_ids_c.to(device),
+                    stopping_criteria=sc_list,
+                    logits_processor=logits_processor,
+                    top_k=int(opts[1]),
+                    penalty_alpha=float(opts[2]),
+                )
+            elif "beam" in args.search:
+                # Errors out with CUBLAS_STATUS_NOT_INITIALIZED, not sure why
+                beam_size = int(args.search.split(":")[1])
+                input_ids_c = input_ids_c.repeat(beam_size, input_ids.size(1)).to(device)
+
+                beam_scorer = BeamSearchScorer(
+                    batch_size=1,
+                    num_beams=beam_size,
+                    device=device,
+                )
+
+                outputs = model.beam_search(
+                    input_ids_c.to(device),
+                    stopping_criteria=sc_list,
+                    logits_processor=logits_processor,
+                    beam_scorer=beam_scorer,
+                )
 
             # Decode the outputs
             predictions: DataFrame = tk.decode(outputs[0].cpu().numpy())
@@ -193,9 +252,10 @@ if __name__ == "__main__":
             full_df = pd.concat([full_input, predictions], axis=1)
 
             # Add a column for displaying ground-truth or predictions.
-            full_df["Type"] = ["Input"] * (window_size // row_len) + ["Prediction"] * (window_size // row_len)
+            full_df["Type"] = ["Input"] * (window_size // row_len) + ["Prediction"] * args.predict_size
 
-            with pd.option_context("display.max_columns", None, "display.width", None):
+            with pd.option_context("display.max_columns", None, "display.max_rows", None, "display.width", None):
+                print(f"==== Predictions for Example {idx} ====")
                 print(full_df)
         proc_count += 1
         if proc_count >= args.count:

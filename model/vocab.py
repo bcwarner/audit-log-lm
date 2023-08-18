@@ -107,8 +107,9 @@ class EHRVocab:
 
 # HuggingFace-style tokenizer implementing barebones tokenization for the EHR audit log dataset.
 class EHRAuditTokenizer:
-    def __init__(self, vocab: EHRVocab):
+    def __init__(self, vocab: EHRVocab, timestamp_spaces_cal: List[float] = None):
         self.vocab = vocab
+        self.timestamp_spaces_cal = timestamp_spaces_cal
 
     def encode(self, df: pd.DataFrame):
         raise NotImplementedError("This is not implemented yet.")
@@ -130,8 +131,12 @@ class EHRAuditTokenizer:
         row_dict = dict()
 
         for i in range(len(token_ids)):
-            field, value, _ = self.vocab.global_to_token(token_ids[i])
-            row_dict[field] = value
+            field, value, field_id = self.vocab.global_to_token(token_ids[i])
+            if field == "ACCESS_TIME" and self.timestamp_spaces_cal is not None:
+                # Dequantize the access time. field_id starts at 1.
+                row_dict[field] = self.timestamp_spaces_cal[field_id - 1] if field_id != 1 else "<= 1"
+            else:
+                row_dict[field] = value
             if len(row_dict) == fn:
                 rows.append(row_dict)
                 row_dict = dict()
