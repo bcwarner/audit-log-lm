@@ -134,6 +134,7 @@ class EHRAuditTokenizer:
             row_dict[field] = value
             if len(row_dict) == fn:
                 rows.append(row_dict)
+                row_dict = dict()
         return output_type(rows)
 
     def batch_decode(self,
@@ -153,11 +154,21 @@ class EHRAuditTokenizer:
 class EHRAuditLogitsProcessor(LogitsProcessor):
     def __init__(self, vocab: EHRVocab):
         self.vocab = vocab
+        self.fields = self.vocab.field_names(include_special=False)
         self.fn = len(self.vocab.field_names(include_special=False))
 
+
     def __call__(self, input_ids: torch.Tensor, logits: torch.Tensor):
-        # For each equivalent row in the vocab, we want to -inf out the logits that aren't relevant.
-        raise NotImplementedError("Will be implemented if necessary.")
+        # For each equivalent row in the vocab, we want to -inf out the logits that are outside the field range.
+        # Assumes that each field in the batch is aligned.
+        f = self.vocab.global_tokens[input_ids[:, -1].item()][0]
+        next_field = (self.fields.index(f) + 1) % self.fn
+        next_field_start = self.vocab.field_ids[self.fields[next_field]][0]
+        next_field_end = self.vocab.field_ids[self.fields[next_field]][-1]
+        logits[:, :next_field_start] = float("-inf")
+        logits[:, next_field_end:] = float("-inf")
+        return logits
+
 
 
 if __name__ == "__main__":

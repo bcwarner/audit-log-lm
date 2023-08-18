@@ -6,20 +6,22 @@ import pickle
 import sys
 from collections import defaultdict
 
+import pandas as pd
 import scipy.stats
 import torch
 import yaml
 from matplotlib.axes import Axes
+from pandas import DataFrame
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from tabulate import tabulate
 from matplotlib import pyplot as plt
-from transformers import BeamSearchScorer, StoppingCriteriaList, MaxLengthCriteria
+from transformers import BeamSearchScorer, StoppingCriteriaList, MaxLengthCriteria, LogitsProcessorList
 
 from model.model import EHRAuditGPT2
 from model.modules import EHRAuditPretraining, EHRAuditDataModule
 from model.data import timestamp_space_calculation
-from model.vocab import EHRVocab, EHRAuditTokenizer
+from model.vocab import EHRVocab, EHRAuditTokenizer, EHRAuditLogitsProcessor
 import tikzplotlib
 import numpy as np
 
@@ -122,6 +124,8 @@ if __name__ == "__main__":
     tk = EHRAuditTokenizer(vocab)
 
     window_size = 30  # 30 action window
+    predict_size = window_size * 2  # input + output
+    proc_count = 0
     for batch in dl:
         input_ids, labels = batch
         with torch.no_grad():
@@ -136,35 +140,63 @@ if __name__ == "__main__":
 
             row_len = len(vocab.field_ids) - 1  # Exclude special fields
             row_count = (eos_index - 1) // row_len
-            if row_count <= (window_size * 2) // row_len:  # Not applicable
+            if row_count <= predict_size // row_len:  # Not applicable
                 continue
 
             # Copy the labels, and zero out past the window length.
             input_ids_c = input_ids.clone()
-            input_ids_c = input_ids_c[0, :(window_size + 1)]
+            input_ids_c = input_ids_c[:, :(window_size + 1)]
 
-            beam_scorer = BeamSearchScorer(
-                batch_size=1,
-                num_beams=5,
-                device=device,
-            )
+            # Stack them to the beam size
+            # beam_size = 1
+            # input_ids_c = input_ids_c.repeat(beam_size, input_ids.size(1)).to(device)
+            #
+            # beam_scorer = BeamSearchScorer(
+            #     batch_size=1,
+            #     num_beams=beam_size,
+            #     device=device,
+            # )
 
             # Stopping criteria, just the second window
-            sc_list = StoppingCriteriaList([MaxLengthCriteria(window_size)])
+            sc_list = StoppingCriteriaList([MaxLengthCriteria(predict_size)])
+
+            # Process logits so that only tokens in the correct field are allowed
+            logits_processor = LogitsProcessorList(
+                [
+                    EHRAuditLogitsProcessor(vocab=vocab),
+                ]
+            )
+
+            if isinstance(model, EHRAuditGPT2):
+                model.generation_config.pad_token_id = model.generation_config.eos_token_id
 
             # Generate the outputs from the window.
-            outputs = model.beam_search(
-                input_ids_c,
-                beam_scorer,
+            outputs = model.greedy_search(
+                input_ids_c.to(device),
                 stopping_criteria=sc_list,
+                logits_processor=logits_processor,
             )
 
             # Decode the outputs
-            predictions = tk.decode(outputs[0][0].cpu().numpy())
+            predictions: DataFrame = tk.decode(outputs[0].cpu().numpy())
+            full_input: DataFrame = tk.decode(input_ids[0, :predict_size].cpu().numpy())
 
-            print("=== Inputs ===")
-            print(tk.decode(input_ids[0].cpu().numpy()))
-            print("=== Predictions ===")
-            print(predictions)
-            print("=== Labels ===")
-            print(tk.decode(labels[0].cpu().numpy()))
+            # Change the indicies of predictions and full_input to a multi-index
+            full_input.columns = pd.MultiIndex.from_tuples(
+                [("Ground-Truth", x) for x in full_input.columns]
+            )
+            predictions.columns = pd.MultiIndex.from_tuples(
+                [("Prediction", x) for x in predictions.columns]
+            )
+
+            # Concatenate the two dataframes so that they're side by side
+            full_df = pd.concat([full_input, predictions], axis=1)
+
+            # Add a column for displaying ground-truth or predictions.
+            full_df["Type"] = ["Input"] * (window_size // row_len) + ["Prediction"] * (window_size // row_len)
+
+            with pd.option_context("display.max_columns", None, "display.width", None):
+                print(full_df)
+        proc_count += 1
+        if proc_count >= args.count:
+            break
