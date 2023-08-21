@@ -12,7 +12,7 @@ import pandas as pd
 from model.vocab import EHRVocab
 
 
-def timestamp_space_calculation(timestamp_spaces: List[str | float]):
+def timestamp_space_calculation(timestamp_spaces: List):
     timestamp_spaces_fn = getattr(np, timestamp_spaces[0])
     timestamp_spaces_float = [
         float(timestamp_spaces[1]),
@@ -64,7 +64,7 @@ class EHRAuditDataset(Dataset):
         timestamp_spaces: List[float] = None,
         should_tokenize: bool = True,
         cache: str = None,
-        max_length: int = None,
+        max_length: int = 1024,
     ):
         self.seqs = []
         self.len = None
@@ -85,7 +85,7 @@ class EHRAuditDataset(Dataset):
 
         if self.timestamp_spaces is None and self.should_tokenize is True:
             raise ValueError("Tokenization depends on timestamp binning.")
-        self.cache = cache
+        self.cache = cache + (("_" + str(self.max_length)) if self.max_length != 1024 else "")
 
     def load(self):
         """

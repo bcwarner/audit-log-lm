@@ -4,15 +4,16 @@ import os
 from datetime import datetime
 
 import lightning.pytorch as pl
+import numpy as np
 import torch
 import yaml
 from lightning import Callback
 from lightning.pytorch.callbacks import TQDMProgressBar, EarlyStopping
 from lightning.pytorch.profilers import PyTorchProfiler, AdvancedProfiler
 from lightning.pytorch.tuner import Tuner
-from transformers import GPT2Config, RwkvConfig
+from transformers import GPT2Config, RwkvConfig, TransfoXLConfig, LlamaConfig
 
-from model.model import EHRAuditGPT2, EHRAuditRWKV
+from model.model import EHRAuditGPT2, EHRAuditRWKV, EHRAuditTransformerXL, EHRAuditLlama
 from model.modules import EHRAuditPretraining, EHRAuditDataModule
 from model.vocab import EHRVocab
 
@@ -80,7 +81,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--layers",
         type=int,
-        default=6,
+        default=None,
         help="Number of layers to use for the model.",
     )
     parser.add_argument(
@@ -88,6 +89,12 @@ if __name__ == "__main__":
         type=int,
         default=6,
         help="Number of heads to use for the model.",
+    )
+    parser.add_argument(
+        "--hidden_size",
+        type=int,
+        default=None,
+        help="Size for the hidden state of the model if applicable.",
     )
     parser.add_argument(
         "--continue_from",
@@ -119,15 +126,39 @@ if __name__ == "__main__":
     )
     models = {
         "gpt2": EHRAuditGPT2,
+        "transformer-xl": EHRAuditTransformerXL,
+        "rwkv": EHRAuditRWKV,
+        "llama": EHRAuditLlama,
     }
     model_configs = {
         "gpt2": GPT2Config(
             vocab_size=len(vocab),
             n_positions=1024,
             n_head=args.heads,
-            n_layer=args.layers,
+            n_layer=6 if args.layers is None else args.layers,
         ),
+        "transformer-xl": TransfoXLConfig( # To evaluate later, needs significant reconfiguration.
+            vocab_size=len(vocab),
+            n_positions=4096,
+            n_head=args.heads,
+            n_layer=6 if args.layers is None else args.layers,
+            cutoffs=np.cumsum([len(v) for k, v in vocab.field_ids.items()])
+        ),
+        "rwkv": RwkvConfig(
+            vocab_size=len(vocab),
+            n_positions=1024,
+            hidden_size=512 if not args.hidden_size else args.hidden_size,
+            num_hidden_layers=6 if args.layers is None else args.layers,
+        ),
+        "llama": LlamaConfig(
+            vocab_size=len(vocab),
+            n_positions=1024,
+            hidden_size=512 if not args.hidden_size else args.hidden_size,
+            num_hidden_layers=6 if args.layers is None else args.layers,
+        )
     }
+
+    model = models[args.model](model_configs[args.model], vocab)
 
     dm = EHRAuditDataModule(
         config_path,
@@ -135,9 +166,8 @@ if __name__ == "__main__":
         batch_size=args.batch_size,
         reset_cache=args.reset_cache,
         debug=args.dbg,
+        n_positions=model_configs[args.model].n_positions,
     )
-
-    model = models[args.model](model_configs[args.model], vocab)
 
     # Either load the model from a checkpoint for saving, or train it.
     if args.conv_ckpt is not None:
