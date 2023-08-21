@@ -149,7 +149,7 @@ class EHRAuditDataModule(pl.LightningDataModule):
             if (
                 os.path.exists(
                     os.path.normpath(
-                        os.path.join(prov_path, self.config["audit_log_cache"])
+                        os.path.join(prov_path, self.config["audit_log_cache"] + (("_" + str(self.n_positions)) if self.n_positions != 1024 else ""))
                     )
                 )
                 and self.reset_cache is False

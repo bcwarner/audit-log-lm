@@ -2,9 +2,10 @@
 from typing import List
 
 import torch
-from transformers import RwkvForCausalLM, RwkvConfig, TransfoXLLMHeadModel, PretrainedConfig
+from transformers import RwkvForCausalLM, RwkvConfig, TransfoXLLMHeadModel, PretrainedConfig, LlamaForCausalLM
 from transformers import GPT2LMHeadModel, GPT2Config
-from transformers.modeling_outputs import CausalLMOutputWithCrossAttentions
+from transformers.modeling_outputs import CausalLMOutputWithCrossAttentions, CausalLMOutputWithPast
+from transformers.models.rwkv.modeling_rwkv import RwkvCausalLMOutput
 
 from model.vocab import EHRVocab
 
@@ -196,6 +197,9 @@ class EHRAuditGPT2(GPT2LMHeadModel):
         )
 
 class EHRAuditTransformerXL(TransfoXLLMHeadModel):
+    """
+
+    """
     def __init__(self, config, vocab: EHRVocab):
         super().__init__(config)
         self.config = config
@@ -205,29 +209,22 @@ class EHRAuditTransformerXL(TransfoXLLMHeadModel):
     def forward(
         self,
         input_ids=None,
-        labels=None,
-        attention_mask=None,
         mems=None,
-        perm_mask=None,
-        target_mapping=None,
         head_mask=None,
         inputs_embeds=None,
-        use_cache=None,
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        labels=None,
+        training=False,
         should_break=False,
         **kwargs
     ):
         transformer_outputs = self.transformer(
             input_ids=input_ids,
-            attention_mask=attention_mask,
             mems=mems,
-            perm_mask=perm_mask,
-            target_mapping=target_mapping,
             head_mask=head_mask,
             inputs_embeds=inputs_embeds,
-            use_cache=use_cache,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
@@ -236,20 +233,31 @@ class EHRAuditTransformerXL(TransfoXLLMHeadModel):
         hidden_states = transformer_outputs[0]
         lm_logits = self.lm_head(hidden_states)
 
-        outputs = (lm_logits,) + transformer_outputs[1:]
+        total_lm_loss = None
         if labels is not None:
             # Compute the loss.
             total_lm_loss = self.loss(lm_logits, labels)
 
             # Append the loss to the end of the outputs.
-            outputs = (total_lm_loss,) + outputs
+        if not return_dict:
+            outputs = (lm_logits,) + transformer_outputs[1:]
+            return (total_lm_loss,) + outputs if total_lm_loss is not None else outputs
 
-        return outputs
+        return CausalLMOutputWithCrossAttentions(
+            loss=total_lm_loss,
+            logits=lm_logits,
+            past_key_values=transformer_outputs.past_key_values,
+            hidden_states=transformer_outputs.hidden_states,
+            attentions=transformer_outputs.attentions,
+            cross_attentions=transformer_outputs.cross_attentions,
+        )
 
 class EHRAuditRWKV(RwkvForCausalLM):
-    def __init__(self, config):
+    def __init__(self, config, vocab: EHRVocab):
         super().__init__(config)
         self.config = config
+        self.vocab = vocab
+        self.loss = TabularLoss(config, vocab, reduction="mean")
 
     def forward(
         self,
@@ -262,16 +270,96 @@ class EHRAuditRWKV(RwkvForCausalLM):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        should_break=False,
         **kwargs
     ):
-        return super().forward(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+        rwkv_outputs = self.rwkv(
+            input_ids,
             inputs_embeds=inputs_embeds,
-            labels=labels,
+            state=state,
             use_cache=use_cache,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
-            **kwargs
+        )
+        hidden_states = rwkv_outputs[0]
+
+        logits = self.head(hidden_states)
+
+        loss = None
+        if labels is not None:
+            loss = self.loss(logits, labels)
+
+        if not return_dict:
+            output = (logits,) + rwkv_outputs[1:]
+            return ((loss,) + output) if loss is not None else output
+
+        return RwkvCausalLMOutput(
+            loss=loss,
+            logits=logits,
+            state=rwkv_outputs.state,
+            hidden_states=rwkv_outputs.hidden_states,
+            attentions=rwkv_outputs.attentions,
+        )
+
+class EHRAuditLlama(LlamaForCausalLM):
+    def __init__(self, config, vocab: EHRVocab):
+        super().__init__(config)
+        self.config = config
+        self.vocab = vocab
+        self.loss = TabularLoss(config, vocab, reduction="mean")
+
+    def forward(
+            self,
+            input_ids= None,
+            attention_mask= None,
+            position_ids= None,
+            past_key_values= None,
+            inputs_embeds= None,
+            labels= None,
+            use_cache = None,
+            output_attentions = None,
+            output_hidden_states = None,
+            return_dict = None,
+            should_break = False,
+    ):
+        output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
+        output_hidden_states = (
+            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
+        )
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+        # decoder outputs consists of (dec_features, layer_state, dec_hidden, dec_attn)
+        outputs = self.model(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            position_ids=position_ids,
+            past_key_values=past_key_values,
+            inputs_embeds=inputs_embeds,
+            use_cache=use_cache,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
+
+        hidden_states = outputs[0]
+        logits = self.lm_head(hidden_states)
+
+        loss = None
+        if labels is not None:
+            loss = self.loss(logits, labels)
+
+
+        if not return_dict:
+            output = (logits,) + outputs[1:]
+            return (loss,) + output if loss is not None else output
+
+        return CausalLMOutputWithPast(
+            loss=loss,
+            logits=logits,
+            past_key_values=outputs.past_key_values,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
         )
