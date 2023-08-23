@@ -15,7 +15,7 @@ from tqdm import tqdm
 from tabulate import tabulate
 from matplotlib import pyplot as plt
 
-from model.model import EHRAuditGPT2
+from model.model import EHRAuditGPT2, EHRAuditRWKV, EHRAuditLlama
 from model.modules import EHRAuditPretraining, EHRAuditDataModule
 from model.data import timestamp_space_calculation
 from model.vocab import EHRVocab
@@ -34,19 +34,21 @@ class Experiment:
         config: dict,
         path_prefix: str,
         vocab: EHRVocab,
+        model: str,
         *args,
         **kwargs,
     ):
         self.config = config
         self.path_prefix = path_prefix
         self.vocab = vocab
+        self.model = model
 
     def _exp_cache_path(self):
         return os.path.normpath(
             os.path.join(
                 self.path_prefix,
                 self.config["results_path"],
-                f"exp_cache_{self.__class__.__name__}.pt",
+                f"exp_cache_{self.__class__.__name__}",
             )
         )
 
@@ -55,8 +57,10 @@ class Experiment:
         row=None,
         prev_row=None,
         row_loss=None,
+        row_field_loss=None,
         prev_row_loss=None,
         batch_no=None,
+        **kwargs,
     ):
         pass
 
@@ -113,6 +117,7 @@ class EntropySwitchesExperiment(Experiment):
         prev_row=None,
         prev_row_loss=None,
         batch_no=None,
+        **kwargs,
     ):
         if prev_row is None:
             return
@@ -434,6 +439,7 @@ class PatientsSessionsEntropyExperiment(Experiment):
         row_loss=None,
         prev_row_loss=None,
         batch_no=None,
+        **kwargs,
     ):
         # Get the patient ID
         patient_id = row[PAT_ID_COL]
@@ -535,7 +541,8 @@ class TimeEntropyExperiment(Experiment):
         return True
 
     def on_row(
-        self, row=None, prev_row=None, row_loss=None, prev_row_loss=None, batch_no=None
+        self, row=None, prev_row=None, row_loss=None, prev_row_loss=None, batch_no=None,
+        **kwargs,
     ):
         # Get the time delta
         time_delta = row[ACCESS_TIME_COL]
@@ -642,6 +649,93 @@ class TimeEntropyExperiment(Experiment):
             )
         )
 
+class PerFieldEntropyExperiment(Experiment):
+    # Just records the entropy of each field as well as overall.
+    def __init__(self, config, path_prefix, vocab, model, *args, **kwargs):
+        super().__init__(config, path_prefix, vocab, model, *args, **kwargs)
+        self.field_entropies = defaultdict(list)
+        self.row_entropies = []
+        self._samples_seen = 0
+
+    def on_batch(self, sequence):
+        return True
+
+    def on_row(self, row=None, prev_row=None, row_loss=None, prev_row_loss=None, batch_no=None,
+                row_field_loss=None, prev_row_field_loss=None, **kwargs):
+        self.row_entropies.append(row_loss)
+        self._samples_seen += 1
+        for field, loss in enumerate(row_field_loss):
+            self.field_entropies[field].append(loss)
+
+    def samples_seen(self):
+        return self._samples_seen
+
+    def on_finish(self):
+        model_type = self.model.replace(os.sep, "_")
+        model_path = os.path.join(
+            self._exp_cache_path(), f"{model_type}.pt",
+        )
+        os.makedirs(os.path.dirname(model_path), exist_ok=True)
+        with open(model_path, "wb") as f:
+            pickle.dump(
+                {
+                    "field_entropies": self.field_entropies,
+                    "row_entropies": self.row_entropies,
+                    "model": self.model,
+                },
+                f,
+            )
+
+    def plot(self):
+        # Get all of the model versions in the results directory
+        model_versions = os.listdir(self._exp_cache_path())
+        # Coalesce all results by model type.
+        field_entropies_by_model = defaultdict(lambda: defaultdict(list))
+        row_entropies_by_model = defaultdict(list)
+        for model in model_versions:
+            model_type = model.split("_")[0]
+            # Load the model
+            model_data = pickle.load(open(os.path.join(self._exp_cache_path(), model), "rb"))
+            for k in model_data["field_entropies"]:
+                field_entropies_by_model[model_type][k].extend(
+                    model_data["field_entropies"][k]
+                )
+            row_entropies_by_model[model_type].extend(model_data["row_entropies"])
+        # Flip the field entropies by model to be by field
+        field_entropies_mean = defaultdict(list)
+        for k, v in field_entropies_by_model.items():
+            for f, ent in v.items():
+                field_entropies_mean[f].append(np.mean(ent))
+
+        # Plot the field entropies
+        plt.clf()
+        fig, ax = plt.gcf(), plt.gca()
+        offset = 0
+        width = 0.1
+        field_labels = ["METRIC_NAME", "PAT_ID", "ACCESS_TIME"]
+        range = np.arange(len(field_labels))
+        for idx, key in enumerate(field_entropies_by_model.keys()):
+            hts = [np.mean(field_entropies_by_model[key][k]) for k in range]
+            rects = ax.bar(range + (idx * width), height=hts, width=width, label=key)
+            ax.bar_label(rects)
+
+        ax.set_xticks(range + width / 2, field_labels)
+        ax.set_ylabel("Entropy")
+        ax.set_title("Entropy by Field")
+
+        plt.legend()
+        plt.savefig(
+            os.path.normpath(
+                os.path.join(
+                    self.path_prefix,
+                    self.config["results_path"],
+                    "field_entropies.png",
+                )
+            )
+        )
+
+
+
 
 if __name__ == "__main__":
     # Get arguments
@@ -727,8 +821,6 @@ if __name__ == "__main__":
     vocab = EHRVocab(
         vocab_path=os.path.normpath(os.path.join(path_prefix, config["vocab_path"]))
     )
-    model = EHRAuditGPT2.from_pretrained(model_path, vocab=vocab)
-    model.to(device)
 
     dm = EHRAuditDataModule(
         yaml_config_path=config_path,
@@ -757,7 +849,7 @@ if __name__ == "__main__":
     # Initialize the experiments
     if "," in args.exp:
         experiments = [
-            eval(exp)(config, path_prefix, vocab) for exp in args.exp.split(",")
+            eval(exp)(config, path_prefix, vocab, model=model_name) for exp in args.exp.split(",")
         ]
     elif "all" in args.exp:
         # Get a list of all classes that sublcass Experiment in this file.
@@ -768,18 +860,29 @@ if __name__ == "__main__":
             and issubclass(obj, Experiment)
             and obj != Experiment
         ]
-        experiments = [exp(config, path_prefix, vocab) for exp in exp_classes]
+        experiments = [exp(config, path_prefix, vocab, model=model_name) for exp in exp_classes]
     else:
-        experiments = [eval(args.exp)(config, path_prefix, vocab)]
+        experiments = [eval(args.exp)(config, path_prefix, vocab, model=model_name)]
 
     if args.plot_only:
         for exp in experiments:
             exp.plot()
         sys.exit()
 
+    types = {
+        "gpt2": EHRAuditGPT2,
+        "rwkv": EHRAuditRWKV,
+        "llama": EHRAuditLlama,
+    }
+
+    model_type = model_list[model_idx].split(os.sep)[0]
+    model = types[model_type].from_pretrained(model_path, vocab=vocab)
+    model.loss.reduction = "none"
+    model.to(device)
+
     print(f"Running experiments:")
     for exp in experiments:
-        print("-", type(exp).__name__)
+        print("- ", type(exp).__name__)
 
     # Initialize progress bars for each experiment
     exp_pbar = [
@@ -823,15 +926,17 @@ if __name__ == "__main__":
                     for i in range(len(experiments))
                 ]
 
-            if len(experiments) > 0 and not any(should_on_batch):
+            if len(experiments) > 0:
                 if all([exp.samples_seen() >= max_samples for exp in experiments]):
                     break
-                pbar.set_postfix({"Skipped": batches_skipped})
-                batches_skipped += 1
-                continue
+                elif not any(should_on_batch):
+                    pbar.set_postfix({"Skipped": batches_skipped})
+                    batches_skipped += 1
+                    continue
 
             prev_row = None
             prev_row_loss = None
+            prev_row_field_loss = None
             # NOTE: Next-token generation != next-row generation
             # This means that we include the next two tokens in the input to avoid EOS predictions.
             for i in range(0, row_count):
@@ -848,10 +953,10 @@ if __name__ == "__main__":
                 labels_c[:, labels_row_start:labels_row_end] = labels[
                     :, labels_row_start:labels_row_end
                 ]
-                if i > 0:
-                    labels_c[
-                        :, input_ids_start:input_ids_end
-                    ] = -100  # Eliminate previous row.
+                #if i > 0:
+                #    labels_c[
+                #        :, input_ids_start:input_ids_end
+                #    ] = -100  # Eliminate previous row.
 
                 # if i >= window_size:
                 #    old_row_start = (i - window_size) * row_len
@@ -859,9 +964,13 @@ if __name__ == "__main__":
                 #    input_ids_c[:, old_row_start:old_row_end] = 0
 
                 # Calculate the cross entropy
-                loss, _, _ = model(input_ids_c.to(device), labels=labels_c.to(device))
-                # Loss is averaged over the row in TabularLoss
-                avg_loss = loss.item() #
+                output = model(input_ids_c.to(device), labels=labels_c.to(device))
+                loss = output.loss
+                loss_restricted = loss[0, labels_row_start:labels_row_end].cpu().numpy()
+                metric_loss = loss_restricted[0]
+                patient_loss = loss_restricted[1]
+                time_loss = loss_restricted[2]
+                avg_loss = loss_restricted.mean().item()
                 ce_current.append(avg_loss)
                 for j in range(len(experiments)):
                     if should_on_batch[j]:
@@ -872,6 +981,8 @@ if __name__ == "__main__":
                         experiments[j].on_row(
                             row=labels_row,
                             row_loss=avg_loss,
+                            row_field_loss=[metric_loss, patient_loss, time_loss],
+                            prev_row_field_loss=prev_row_field_loss,
                             prev_row=prev_row,
                             prev_row_loss=prev_row_loss,
                             batch_no=batches_seen,
@@ -880,6 +991,7 @@ if __name__ == "__main__":
                         exp_pbar[j].refresh()
                 prev_row = labels_row
                 prev_row_loss = avg_loss
+                prev_row_field_loss = [metric_loss, patient_loss, time_loss]
 
             pbar.update(1)
             ce_values.append(np.mean(ce_current))

@@ -30,7 +30,40 @@ METRIC_NAME_COL = 0
 PAT_ID_COL = 1
 ACCESS_TIME_COL = 2
 
+class GenerationExperiment:
+    def __init__(self, vocab=None, model=None):
+        self.vocab = vocab
+        self.model = model
 
+    def stopping_criteria(self):
+        return None
+
+    def eval_generation(self, input_df, output_df, label_df):
+        pass
+
+# Next whole-action prediction
+# Next METRIC\_NAME prediction
+class NextActionExperiment(GenerationExperiment):
+    def __init__(self, vocab=None, model=None):
+        super().__init__(vocab=vocab, model=model)
+        self.total_seen = 0
+        self.metric_correct = 0
+        self.total_correct = 0
+
+    def eval_generation(self, input_df, output_df, label_df):
+        # Get the next action
+        next_action = label_df.iloc[0]
+        # Get the predicted next action
+        predicted_next_action = output_df.iloc[0]
+        # Check if the predicted next action is correct
+        if next_action[METRIC_NAME_COL] == predicted_next_action[METRIC_NAME_COL]:
+            self.metric_correct += 1
+        if next_action == predicted_next_action:
+            self.total_correct += 1
+        self.total_seen += 1
+
+# Next correct METRIC\_NAME takes how many actions?
+class CorrectAppearance()
 
 if __name__ == "__main__":
     # Get arguments
