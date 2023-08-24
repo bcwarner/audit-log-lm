@@ -31,7 +31,17 @@ PAT_ID_COL = 1
 ACCESS_TIME_COL = 2
 
 class GenerationExperiment:
-    def __init__(self, vocab=None, model=None):
+    def __init__(
+        self,
+        config: dict,
+        path_prefix: str,
+        vocab: EHRVocab,
+        model: str,
+        *args,
+        **kwargs,
+    ):
+        self.config = config
+        self.path_prefix = path_prefix
         self.vocab = vocab
         self.model = model
 
@@ -41,8 +51,23 @@ class GenerationExperiment:
     def eval_generation(self, input_df, output_df, label_df):
         pass
 
+    def _exp_cache_path(self):
+        return os.path.normpath(
+            os.path.join(
+                self.path_prefix,
+                self.config["results_path"],
+                f"exp_cache_{self.__class__.__name__}",
+            )
+        )
+
+    def on_finish(self):
+        pass
+
+    def plot(self):
+        pass
+
 # Next whole-action prediction
-# Next METRIC\_NAME prediction
+# Next METRIC_NAME prediction
 class NextActionExperiment(GenerationExperiment):
     def __init__(self, vocab=None, model=None):
         super().__init__(vocab=vocab, model=model)
@@ -108,6 +133,18 @@ if __name__ == "__main__":
         type=int,
         default=20,
         help="Number of actions to predict.",
+    )
+    parser.add_argument(
+        "-p",
+        "--plotting",
+        type=str,
+        default="no", # other options: "yes", "only"
+    )
+    parser.add_argument(
+        "--exp",
+        type=str,
+        default="NextActionExperiment",
+        help="Experiments to run.",
     )
     args = parser.parse_args()
     # Get the list of models from the config file
