@@ -693,7 +693,9 @@ class PerFieldEntropyExperiment(Experiment):
         field_entropies_by_model = defaultdict(lambda: defaultdict(list))
         row_entropies_by_model = defaultdict(list)
         for model in model_versions:
-            model_type = model.split("_")[0]
+            model_fs = model.split("_")
+            model_t = model_fs[0]
+            model_type = model_t + "-" + ".".join(model_fs[1:3])
             # Load the model
             model_data = pickle.load(open(os.path.join(self._exp_cache_path(), model), "rb"))
             for k in model_data["field_entropies"]:
@@ -710,18 +712,20 @@ class PerFieldEntropyExperiment(Experiment):
         # Plot the field entropies
         plt.clf()
         fig, ax = plt.gcf(), plt.gca()
-        offset = 0
         width = 0.1
         field_labels = ["METRIC_NAME", "PAT_ID", "ACCESS_TIME"]
         range = np.arange(len(field_labels))
+        max_ht = 0
         for idx, key in enumerate(field_entropies_by_model.keys()):
-            hts = [np.mean(field_entropies_by_model[key][k]) for k in range]
+            hts = [2 ** np.mean(field_entropies_by_model[key][k]) for k in range]
+            max_ht = max(max_ht, max(hts))
             rects = ax.bar(range + (idx * width), height=hts, width=width, label=key)
-            ax.bar_label(rects)
+            ax.bar_label(rects, rotation=90, fmt="%.4f")
 
+        ax.set_ylim(0, 1.25 * max_ht)
         ax.set_xticks(range + width / 2, field_labels)
-        ax.set_ylabel("Entropy")
-        ax.set_title("Entropy by Field")
+        ax.set_ylabel("Perplexity")
+        ax.set_title("Perplexity by Field")
 
         plt.legend()
         plt.savefig(
@@ -729,7 +733,7 @@ class PerFieldEntropyExperiment(Experiment):
                 os.path.join(
                     self.path_prefix,
                     self.config["results_path"],
-                    "field_entropies.png",
+                    "field_entropies.pdf",
                 )
             )
         )
@@ -939,6 +943,7 @@ if __name__ == "__main__":
             prev_row_field_loss = None
             # NOTE: Next-token generation != next-row generation
             # This means that we include the next two tokens in the input to avoid EOS predictions.
+            loss_pos = model.loss.col_ids_labels.transpose(0, 1).flatten()
             for i in range(0, row_count):
                 input_ids_start = i * row_len
                 input_ids_end = input_ids_start + row_len
@@ -964,13 +969,13 @@ if __name__ == "__main__":
                 #    input_ids_c[:, old_row_start:old_row_end] = 0
 
                 # Calculate the cross entropy
-                output = model(input_ids_c.to(device), labels=labels_c.to(device))
-                loss = output.loss
-                loss_restricted = loss[0, labels_row_start:labels_row_end].cpu().numpy()
-                metric_loss = loss_restricted[0]
-                patient_loss = loss_restricted[1]
-                time_loss = loss_restricted[2]
-                avg_loss = loss_restricted.mean().item()
+                output = model(input_ids_c.to(device), labels=labels_c.to(device), return_dict=True)
+                loss = output.loss.cpu().numpy()
+                metric_loss = loss[METRIC_NAME_COL, i]
+                patient_loss = loss[PAT_ID_COL, i]
+                time_loss = loss[ACCESS_TIME_COL, i]
+                loss_restricted = [metric_loss, patient_loss, time_loss]
+                avg_loss = np.mean(loss_restricted)
                 ce_current.append(avg_loss)
                 for j in range(len(experiments)):
                     if should_on_batch[j]:

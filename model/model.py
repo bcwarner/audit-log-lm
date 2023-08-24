@@ -123,10 +123,11 @@ class TabularLoss(torch.nn.Module):
             )
             return lm_loss_field
 
-        losses = torch.stack([_compute_loss(field_idx) for field_idx in range(self.field_ct)], dim=1)
+        # Doesn't get rid of the last dimension, but that's okay.
+        losses = torch.cat([_compute_loss(field_idx) for field_idx in range(self.field_ct)])
         if self.reduction == "none":
             # Interleave the losses in order of column.
-            total_lm_loss = torch.flatten(losses.transpose(2, 1), start_dim=1)
+            total_lm_loss = losses
         elif self.reduction == "mean":
             # Take the mean across
             total_lm_loss = torch.mean(losses[losses > 0])
@@ -350,7 +351,6 @@ class EHRAuditLlama(LlamaForCausalLM):
         loss = None
         if labels is not None:
             loss = self.loss(logits, labels)
-
 
         if not return_dict:
             output = (logits,) + outputs[1:]
