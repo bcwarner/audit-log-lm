@@ -45,10 +45,10 @@ class GenerationExperiment:
         self.vocab = vocab
         self.model = model
 
-    def stopping_criteria(self):
+    def stopping_criteria(self, context_length: int = 0):
         return None
 
-    def eval_generation(self, input_df, output_df, label_df):
+    def eval_generation(self, output_df, label_df):
         pass
 
     def _exp_cache_path(self):
@@ -66,29 +66,128 @@ class GenerationExperiment:
     def plot(self):
         pass
 
+    # None = all preceding, # = fixed preceding
+    def window_size(self):
+        return None
+
+    def min_size(self):
+        return 2
+
+    def examples_seen(self):
+        return 0
+
 # Next whole-action prediction
 # Next METRIC_NAME prediction
 class NextActionExperiment(GenerationExperiment):
-    def __init__(self, vocab=None, model=None):
-        super().__init__(vocab=vocab, model=model)
+    def __init__(self, config: dict,
+                path_prefix: str,
+                vocab: EHRVocab,
+                model: str,
+                *args,
+                **kwargs):
+        super().__init__(config, path_prefix, vocab, model, *args, **kwargs)
         self.total_seen = 0
-        self.metric_correct = 0
+        self.correct_by_field = defaultdict(int)
         self.total_correct = 0
 
-    def eval_generation(self, input_df, output_df, label_df):
+    def window_size(self):
+        return 1
+
+    def stopping_criteria(self, context_length: int = 0):
+        return StoppingCriteriaList(
+            [
+                MaxLengthCriteria(max_length=context_length + 3),
+            ]
+        )
+
+    def eval_generation(self, output_df, label_df):
         # Get the next action
         next_action = label_df.iloc[0]
         # Get the predicted next action
         predicted_next_action = output_df.iloc[0]
         # Check if the predicted next action is correct
-        if next_action[METRIC_NAME_COL] == predicted_next_action[METRIC_NAME_COL]:
-            self.metric_correct += 1
-        if next_action == predicted_next_action:
+        for x in [METRIC_NAME_COL, PAT_ID_COL, ACCESS_TIME_COL]:
+            if next_action[x] == predicted_next_action[x]:
+                self.correct_by_field[x] += 1
+        if np.all(next_action == predicted_next_action):
             self.total_correct += 1
         self.total_seen += 1
 
+    def examples_seen(self):
+        return self.total_seen
+
+    def on_finish(self):
+        model_type = self.model.replace(os.sep, "_")
+        model_path = os.path.join(
+            self._exp_cache_path(), f"{model_type}.pkl"
+        )
+        os.makedirs(os.path.dirname(model_path), exist_ok=True)
+        with open(model_path, "wb") as f:
+            pickle.dump(
+                {
+                    "total_seen": self.total_seen,
+                    "correct_by_field": self.correct_by_field,
+                    "total_correct": self.total_correct,
+                },
+                f,
+            )
+
+    def plot(self):
+        model_versions = os.listdir(self._exp_cache_path())
+        total_seen_by_model = defaultdict(int)
+        metric_correct_by_model = defaultdict(int)
+        pat_id_correct_by_model = defaultdict(int)
+        access_time_correct_by_model = defaultdict(int)
+        total_correct_by_model = defaultdict(int)
+
+        # Convert to a LaTeX table
+        rows = []
+        for model_version in model_versions:
+            model_path = os.path.join(
+                self._exp_cache_path(), model_version
+            )
+            model_fs = model_version.split("_")
+            model_t = model_fs[0]
+            model_type = model_t + "-" + ".".join(model_fs[1:3])
+
+            with open(model_path, "rb") as f:
+                model_data = pickle.load(f)
+            total_seen_by_model[model_type] = model_data["total_seen"]
+            metric_correct_by_model[model_type] = model_data["correct_by_field"][METRIC_NAME_COL]
+            pat_id_correct_by_model[model_type] = model_data["correct_by_field"][PAT_ID_COL]
+            access_time_correct_by_model[model_type] = model_data["correct_by_field"][ACCESS_TIME_COL]
+            total_correct_by_model[model_type] = model_data["total_correct"]
+
+            rows.append({
+                "Model": model_type,
+                "Total Seen": model_data["total_seen"],
+                "METRIC_NAME Accuracy": metric_correct_by_model[model_type] / total_seen_by_model[model_type],
+                "PAT_ID Accuracy": pat_id_correct_by_model[model_type] / total_seen_by_model[model_type],
+                "ACCESS_TIME Accuracy": access_time_correct_by_model[model_type] / total_seen_by_model[model_type],
+                "Total Accuracy": total_correct_by_model[model_type] / total_seen_by_model[model_type],
+            })
+        df = pd.DataFrame(rows)
+
+        df = df.sort_values(by=["METRIC_NAME Accuracy"], ascending=True)
+        # Drop the Total Seen column if all values are the same
+        if len(df["Total Seen"].unique()) == 1:
+            df = df.drop(columns=["Total Seen"])
+
+        out = df.to_latex(index=False,
+                    float_format="%.3f",
+                    caption="Results for predicting the next action in an audit log sequence.",
+                    label="tab:next_action_results")
+
+        print(out)
+
+
+
 # Next correct METRIC\_NAME takes how many actions?
-class CorrectAppearance()
+class CorrectAppearance(GenerationExperiment):
+    def __init__(self, vocab=None, model=None):
+        super().__init__(vocab=vocab, model=model)
+        self.total_seen = 0
+
 
 if __name__ == "__main__":
     # Get arguments
@@ -110,7 +209,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--count",
         type=int,
-        default=1,
+        default=0,
         help="Number of audit logs to use for the demo.",
     )
     parser.add_argument(
@@ -121,22 +220,8 @@ if __name__ == "__main__":
         help="Search method to use for decoding. If beam, :k is the beam size.",
     )
     parser.add_argument(
-        "--window_size",
-        "-w",
-        type=int,
-        default=30,
-        help="Window size to use for context.",
-    )
-    parser.add_argument(
-        "--predict_size",
         "-p",
-        type=int,
-        default=20,
-        help="Number of actions to predict.",
-    )
-    parser.add_argument(
-        "-p",
-        "--plotting",
+        "--plot",
         type=str,
         default="no", # other options: "yes", "only"
     )
@@ -144,7 +229,7 @@ if __name__ == "__main__":
         "--exp",
         type=str,
         default="NextActionExperiment",
-        help="Experiments to run.",
+        help="Experiment to run.",
     )
     args = parser.parse_args()
     # Get the list of models from the config file
@@ -186,6 +271,7 @@ if __name__ == "__main__":
     else:
         model_idx = args.model
 
+
     model_name = model_list[model_idx]
     model_path = os.path.normpath(
         os.path.join(path_prefix, config["pretrained_model_path"], model_name)
@@ -219,11 +305,15 @@ if __name__ == "__main__":
                     config["timestamp_bins"]["bins"],
                 ]))
 
+    exp = eval(args.exp)(vocab=vocab, model=model_name, config=config, path_prefix=path_prefix)
+    if args.plot == "only":
+        exp.plot()
+        sys.exit(0)
+
     row_len = len(vocab.field_ids) - 1  # Exclude special fields
 
-    window_size = args.window_size * row_len
-    predict_size = (args.window_size + args.predict_size) * row_len
-    proc_count = 0
+    max_samples = min(len(dl), args.count) if args.count > 0 else len(dl)
+    pbar = tqdm(total=max_samples, desc=f"Examples Seen For {exp.__class__.__name__}")
     for idx, batch in enumerate(dl):
         if idx < args.start:
             continue
@@ -237,96 +327,105 @@ if __name__ == "__main__":
             else:
                 eos_index = nonzeros[0][0].item() - 1
 
-            ce_current = []
-
             row_count = (eos_index - 1) // row_len
-            if row_count <= predict_size // row_len:  # Not applicable
+            if row_count <= exp.window_size() // row_len:  # Not applicable
                 continue
+            for i in range(1, row_count):
+                window_size = i * row_len
 
-            # Copy the labels, and zero out past the window length.
-            input_ids_c = input_ids.clone()
-            input_ids_c = input_ids_c[:, :(window_size + 1)]
+                # Copy the labels, and zero out past the window length.
+                input_ids_c = torch.zeros((input_ids.shape[0], window_size)).long()
+                input_ids_c[:, :window_size] = input_ids[:, :window_size]
 
-            # Stack them to the beam size
+                # Stack them to the beam size
 
-            # Stopping criteria, just the second window
-            sc_list = StoppingCriteriaList([MaxLengthCriteria(predict_size)])
+                # Stopping criteria
+                sc_list = exp.stopping_criteria(window_size)
 
-            # Process logits so that only tokens in the correct field are allowed
-            logits_processor = LogitsProcessorList(
-                [
-                    EHRAuditLogitsProcessor(vocab=vocab),
-                ]
-            )
-
-            if isinstance(model, EHRAuditGPT2):
-                model.generation_config.pad_token_id = model.generation_config.eos_token_id
-
-            # Generate the outputs from the window.
-            if args.search == "greedy":
-                outputs = model.greedy_search(
-                    input_ids_c.to(device),
-                    stopping_criteria=sc_list,
-                    logits_processor=logits_processor,
-                )
-            elif args.search == "sample":
-                outputs = model.sample(
-                    input_ids_c.to(device),
-                    stopping_criteria=sc_list,
-                    logits_processor=logits_processor,
-                )
-            elif "contrastive" in args.search:
-                opts = args.search.split(":")
-                if len(opts) == 1:
-                    opts.append("5")
-                if len(opts) <= 2:
-                    opts.append("0.1")
-                outputs = model.contrastive_search(
-                    input_ids_c.to(device),
-                    stopping_criteria=sc_list,
-                    logits_processor=logits_processor,
-                    top_k=int(opts[1]),
-                    penalty_alpha=float(opts[2]),
-                )
-            elif "beam" in args.search:
-                # Errors out with CUBLAS_STATUS_NOT_INITIALIZED, not sure why
-                beam_size = int(args.search.split(":")[1])
-                input_ids_c = input_ids_c.repeat(beam_size, input_ids.size(1)).to(device)
-
-                beam_scorer = BeamSearchScorer(
-                    batch_size=1,
-                    num_beams=beam_size,
-                    device=device,
+                # Process logits so that only tokens in the correct field are allowed
+                logits_processor = LogitsProcessorList(
+                    [
+                        EHRAuditLogitsProcessor(vocab=vocab),
+                    ]
                 )
 
-                outputs = model.beam_search(
-                    input_ids_c.to(device),
-                    stopping_criteria=sc_list,
-                    logits_processor=logits_processor,
-                    beam_scorer=beam_scorer,
+                if isinstance(model, EHRAuditGPT2):
+                    model.generation_config.pad_token_id = model.generation_config.eos_token_id
+
+                # Generate the outputs from the window.
+                if args.search == "greedy":
+                    outputs = model.greedy_search(
+                        input_ids_c.to(device),
+                        stopping_criteria=sc_list,
+                        logits_processor=logits_processor,
+                    )
+                elif args.search == "sample":
+                    outputs = model.sample(
+                        input_ids_c.to(device),
+                        stopping_criteria=sc_list,
+                        logits_processor=logits_processor,
+                    )
+                elif "contrastive" in args.search:
+                    opts = args.search.split(":")
+                    if len(opts) == 1:
+                        opts.append("5")
+                    if len(opts) <= 2:
+                        opts.append("0.1")
+                    outputs = model.contrastive_search(
+                        input_ids_c.to(device),
+                        stopping_criteria=sc_list,
+                        logits_processor=logits_processor,
+                        top_k=int(opts[1]),
+                        penalty_alpha=float(opts[2]),
+                    )
+                elif "beam" in args.search:
+                    # Errors out with CUBLAS_STATUS_NOT_INITIALIZED, not sure why
+                    beam_size = int(args.search.split(":")[1])
+                    input_ids_c = input_ids_c.repeat(beam_size, input_ids.size(1)).to(device)
+
+                    beam_scorer = BeamSearchScorer(
+                        batch_size=1,
+                        num_beams=beam_size,
+                        device=device,
+                    )
+
+                    outputs = model.beam_search(
+                        input_ids_c.to(device),
+                        stopping_criteria=sc_list,
+                        logits_processor=logits_processor,
+                        beam_scorer=beam_scorer,
+                    )
+
+                # Decode the outputs
+                predictions: DataFrame = tk.decode(outputs[0, window_size:].cpu().numpy())
+                labels: DataFrame = tk.decode(input_ids[0, window_size:].cpu().numpy())
+
+                exp.eval_generation(predictions, labels)
+                pbar.n = exp.examples_seen()
+                pbar.refresh()
+                """
+                # Change the indicies of predictions and full_input to a multi-index
+                full_input.columns = pd.MultiIndex.from_tuples(
+                    [("Ground-Truth", x) for x in full_input.columns]
+                )
+                predictions.columns = pd.MultiIndex.from_tuples(
+                    [("Prediction", x) for x in predictions.columns]
                 )
 
-            # Decode the outputs
-            predictions: DataFrame = tk.decode(outputs[0].cpu().numpy())
-            full_input: DataFrame = tk.decode(input_ids[0, :predict_size].cpu().numpy())
+                # Concatenate the two dataframes so that they're side by side
+                full_df = pd.concat([full_input, predictions], axis=1)
 
-            # Change the indicies of predictions and full_input to a multi-index
-            full_input.columns = pd.MultiIndex.from_tuples(
-                [("Ground-Truth", x) for x in full_input.columns]
-            )
-            predictions.columns = pd.MultiIndex.from_tuples(
-                [("Prediction", x) for x in predictions.columns]
-            )
+                # Add a column for displaying ground-truth or predictions.
+                full_df["Type"] = ["Input"] * (window_size // row_len) + ["Prediction"] * args.predict_size
 
-            # Concatenate the two dataframes so that they're side by side
-            full_df = pd.concat([full_input, predictions], axis=1)
-
-            # Add a column for displaying ground-truth or predictions.
-            full_df["Type"] = ["Input"] * (window_size // row_len) + ["Prediction"] * args.predict_size
-
-            with pd.option_context("display.max_columns", None, "display.max_rows", None, "display.width", None):
-                print(f"==== Predictions for Example {idx} ====")
-                print(full_df)
-        proc_count += 1
-        if proc_count >= args.count:
+                with pd.option_context("display.max_columns", None, "display.max_rows", None, "display.width", None):
+                    print(f"==== Predictions for Example {idx} ====")
+                    print(full_df)
+                """
+        if exp.examples_seen() >= max_samples:
             break
+
+    pbar.close()
+    exp.on_finish()
+    if args.plot == "yes":
+        exp.plot()

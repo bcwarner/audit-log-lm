@@ -719,13 +719,14 @@ class PerFieldEntropyExperiment(Experiment):
         for idx, key in enumerate(field_entropies_by_model.keys()):
             hts = [2 ** np.mean(field_entropies_by_model[key][k]) for k in range]
             max_ht = max(max_ht, max(hts))
-            rects = ax.bar(range + (idx * width), height=hts, width=width, label=key)
-            ax.bar_label(rects, rotation=90, fmt="%.4f")
+            rects = ax.barh(range + (idx * width), height=width, width=hts, label=key)
+            ax.bar_label(rects, fmt="%.4f")
 
-        ax.set_ylim(0, 1.25 * max_ht)
-        ax.set_xticks(range + width / 2, field_labels)
-        ax.set_ylabel("Perplexity")
+        ax.set_xlim(0, 1.25 * max_ht)
+        ax.set_yticks(range + (width * len(model_versions)) / 2, field_labels)
+        ax.set_xlabel("Perplexity")
         ax.set_title("Perplexity by Field")
+        fig.tight_layout()
 
         plt.legend()
         plt.savefig(
@@ -769,9 +770,10 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-p",
-        "--plot_only",
-        action="store_true",
-        help="Plot the results without running the experiment.",
+        "--plot",
+        action="store",
+        default="yes", # other options: none, only
+        help="Plot the results.",
     )
     args = parser.parse_args()
     # Get the list of models from the config file
@@ -868,7 +870,7 @@ if __name__ == "__main__":
     else:
         experiments = [eval(args.exp)(config, path_prefix, vocab, model=model_name)]
 
-    if args.plot_only:
+    if args.plot == "only":
         for exp in experiments:
             exp.plot()
         sys.exit()
@@ -1014,10 +1016,6 @@ if __name__ == "__main__":
     for e in experiments:
         e.on_finish()
 
-    # Todo: Add an option to just load and plot the entropy values
-    for e in experiments:
-        e.plot()
-
     # Print statistics about the entropy values
     stats = {
         "Mean CE": np.mean(ce_values),
@@ -1030,6 +1028,13 @@ if __name__ == "__main__":
 
     print(tabulate(stats.items(), headers=["Metric", "Value"]))
 
+    if args.plot == "none":
+        sys.exit(0)
+
+    for e in experiments:
+        e.plot()
+
+    # Todo: move this elsewhere
     plt.clf()
     # Plot the entropy values
     print(f"Plotting entropy values for {len(ce_values)} samples...")
