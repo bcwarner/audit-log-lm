@@ -18,7 +18,7 @@ from matplotlib import pyplot as plt
 from model.model import EHRAuditGPT2, EHRAuditRWKV, EHRAuditLlama
 from model.modules import EHRAuditPretraining, EHRAuditDataModule
 from model.data import timestamp_space_calculation
-from model.vocab import EHRVocab
+from model.vocab import EHRVocab, EHRAuditTokenizer
 import tikzplotlib
 import numpy as np
 
@@ -90,6 +90,7 @@ class EntropySwitchesExperiment(Experiment):
         path_prefix: str,
         vocab: EHRVocab,
         path: str = None,
+        model: str = None,
         *args,
         **kwargs,
     ):
@@ -97,7 +98,7 @@ class EntropySwitchesExperiment(Experiment):
         Measures the entropy of the nth switch during a session vs. the entropy.
         Also compares the entropy of all switches during a session vs. non-switches.
         """
-        super().__init__(config, path_prefix, vocab, path, *args, **kwargs)
+        super().__init__(config, path_prefix, vocab, path, model, *args, **kwargs)
 
         self.switch_entropies_before: defaultdict[int, list] = defaultdict(
             list
@@ -416,8 +417,8 @@ class SecureChatEntropy(Experiment):
 
 
 class PatientsSessionsEntropyExperiment(Experiment):
-    def __init__(self, config, path_prefix, vocab):
-        super().__init__(config, path_prefix, vocab)
+    def __init__(self, config, path_prefix, vocab, model):
+        super().__init__(config, path_prefix, vocab, model)
         # Get the entropy of each session as a function of the number of patients
         self.entropy_by_patient_count_mean: defaultdict[int, list] = defaultdict(
             list
@@ -510,13 +511,14 @@ class PatientsSessionsEntropyExperiment(Experiment):
         plt.title(
             "Mean Entropy by Number of Patients\n Interacted With Per EHR Session"
         )
+        plt.gcf().set_size_inches(6, 4)
         plt.legend()
         plt.savefig(
             os.path.normpath(
                 os.path.join(
                     self.path_prefix,
                     self.config["results_path"],
-                    "entropy_by_patient_count.svg",
+                    "entropy_by_patient_count.pdf",
                 )
             )
         )
@@ -739,7 +741,105 @@ class PerFieldEntropyExperiment(Experiment):
             )
         )
 
+class MaxMinAverageSessionExperiment(Experiment):
+    # Find example sessions with minimum, maximum, and around average session length, then print out tables of them.
+    def __init__(self, config, path_prefix, vocab, model, *args, **kwargs):
+        super().__init__(config, path_prefix, vocab, model, *args, **kwargs)
+        self.min_session = []
+        self.min_session_entropy = torch.tensor([torch.inf])
+        self.max_session = []
+        self.max_session_entropy = torch.tensor([-torch.inf])
+        self.avg_session = []
+        self.avg_session_entropy = torch.zeros(1)
+        self.cur_session = torch.tensor([])
+        self.cur_session_entropy = []
+        self._samples_seen = 0
 
+    def on_batch(self, sequence):
+        if torch.any(self.cur_session):
+            # Normalize the entropy by the length of the session
+            entropy = torch.tensor(self.cur_session_entropy)
+            avg_entropy = torch.mean(entropy)
+            # Update the min, max, and average sessions
+            if avg_entropy < torch.mean(self.min_session_entropy):
+                self.min_session = self.cur_session
+                self.min_session_entropy = entropy
+            if avg_entropy > torch.mean(self.max_session_entropy):
+                self.max_session = self.cur_session
+                self.max_session_entropy = entropy
+            if np.abs(avg_entropy - 1) < np.abs(torch.mean(self.avg_session_entropy) - 1):
+                self.avg_session_entropy = entropy
+                self.avg_session = self.cur_session
+
+        self.cur_session_entropy = []
+        self.cur_session = sequence
+        self._samples_seen += 1
+        return True
+
+    def on_row(
+        self,
+        row=None,
+        prev_row=None,
+        row_loss=None,
+        row_field_loss=None,
+        prev_row_loss=None,
+        batch_no=None,
+        **kwargs,
+    ):
+        self.cur_session_entropy.append(row_loss)
+
+    def samples_seen(self):
+        return self._samples_seen
+
+    def on_finish(self):
+        model_type = self.model.replace(os.sep, "_")
+        model_path = os.path.join(
+            self._exp_cache_path(), f"{model_type}.pt",
+        )
+        os.makedirs(os.path.dirname(model_path), exist_ok=True)
+        with open(model_path, "wb") as f:
+            pickle.dump(
+                {
+                    "avg_session": self.avg_session,
+                    "avg_session_entropy": self.avg_session_entropy,
+                    "min_session": self.min_session,
+                    "min_session_entropy": self.min_session_entropy,
+                    "max_session": self.max_session,
+                    "max_session_entropy": self.max_session_entropy,
+                },
+                f,
+            )
+
+    def plot(self):
+        model_type = self.model.replace(os.sep, "_")
+        model_path = os.path.join(
+            self._exp_cache_path(), f"{model_type}.pt",
+        )
+        with open(
+            os.path.join(model_path), "rb"
+        ) as f:
+            data = pickle.load(f)
+
+        # Detokenize the sessions
+        timestamps = timestamp_space_calculation(
+            list(config["timestamp_bins"].values())
+        )
+        tk = EHRAuditTokenizer(vocab=self.vocab, timestamp_spaces_cal=timestamps)
+        average_session = tk.decode(data["avg_session"].tolist())
+        min_session = tk.decode(data["min_session"].tolist())
+        max_session = tk.decode(data["max_session"].tolist())
+        # Add the row entropies to the decoded sessions
+        average_session["Row Entropy"] = ["-"] + data["avg_session_entropy"].tolist()
+        min_session["Row Entropy"] = ["-"] + data["min_session_entropy"].tolist()
+        max_session["Row Entropy"] = ["-"] + data["max_session_entropy"].tolist()
+
+        # Print the sessions
+        print(average_session.to_latex(index=False,
+                                       float_format="%.3f",))
+        print(min_session.to_latex(index=False,
+                                      float_format="%.3f",))
+        print(max_session.to_latex(index=False,
+                                        float_format="%.3f",))
 
 
 if __name__ == "__main__":
@@ -806,9 +906,10 @@ if __name__ == "__main__":
     if len(model_list) == 0:
         raise ValueError(f"No models found in {format(model_paths)}")
 
+    model_list = sorted(model_list)
     if args.model is None:
         print("Select a model to evaluate:")
-        for i, model in enumerate(sorted(model_list)):
+        for i, model in enumerate(model_list):
             print(f"{i}: {model}")
 
         model_idx = int(input("Model index >>>"))
@@ -827,6 +928,29 @@ if __name__ == "__main__":
     vocab = EHRVocab(
         vocab_path=os.path.normpath(os.path.join(path_prefix, config["vocab_path"]))
     )
+
+    # Initialize the experiments
+    if "," in args.exp:
+        experiments = [
+            eval(exp)(config, path_prefix, vocab, model=model_name) for exp in args.exp.split(",")
+        ]
+    elif "all" in args.exp:
+        # Get a list of all classes that sublcass Experiment in this file.
+        exp_classes = [
+            obj
+            for name, obj in inspect.getmembers(sys.modules[__name__])
+            if inspect.isclass(obj)
+            and issubclass(obj, Experiment)
+            and obj != Experiment
+        ]
+        experiments = [exp(config, path_prefix, vocab, model=model_name) for exp in exp_classes]
+    else:
+        experiments = [eval(args.exp)(config, path_prefix, vocab, model=model_name)]
+
+    if args.plot == "only":
+        for exp in experiments:
+            exp.plot()
+        sys.exit()
 
     dm = EHRAuditDataModule(
         yaml_config_path=config_path,
@@ -852,28 +976,7 @@ if __name__ == "__main__":
 
     window_size = 30  # 30 action window
 
-    # Initialize the experiments
-    if "," in args.exp:
-        experiments = [
-            eval(exp)(config, path_prefix, vocab, model=model_name) for exp in args.exp.split(",")
-        ]
-    elif "all" in args.exp:
-        # Get a list of all classes that sublcass Experiment in this file.
-        exp_classes = [
-            obj
-            for name, obj in inspect.getmembers(sys.modules[__name__])
-            if inspect.isclass(obj)
-            and issubclass(obj, Experiment)
-            and obj != Experiment
-        ]
-        experiments = [exp(config, path_prefix, vocab, model=model_name) for exp in exp_classes]
-    else:
-        experiments = [eval(args.exp)(config, path_prefix, vocab, model=model_name)]
 
-    if args.plot == "only":
-        for exp in experiments:
-            exp.plot()
-        sys.exit()
 
     types = {
         "gpt2": EHRAuditGPT2,

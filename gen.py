@@ -18,12 +18,13 @@ from tabulate import tabulate
 from matplotlib import pyplot as plt
 from transformers import BeamSearchScorer, StoppingCriteriaList, MaxLengthCriteria, LogitsProcessorList
 
-from model.model import EHRAuditGPT2
+from model.model import EHRAuditGPT2, EHRAuditRWKV, EHRAuditLlama
 from model.modules import EHRAuditPretraining, EHRAuditDataModule
 from model.data import timestamp_space_calculation
 from model.vocab import EHRVocab, EHRAuditTokenizer, EHRAuditLogitsProcessor
 import tikzplotlib
 import numpy as np
+import evaluate
 
 # Fyi: this is a quick-and-dirty way of id'ing the columns, will need to be changed if the tabularization changes
 METRIC_NAME_COL = 0
@@ -45,10 +46,10 @@ class GenerationExperiment:
         self.vocab = vocab
         self.model = model
 
-    def stopping_criteria(self, context_length: int = 0):
+    def stopping_criteria(self, context_length: int = 0, total_length: int = 0):
         return None
 
-    def eval_generation(self, output_df, label_df):
+    def eval_generation(self, output_df=None, label_df=None, output_tokens=None, label_tokens=None):
         pass
 
     def _exp_cache_path(self):
@@ -66,7 +67,7 @@ class GenerationExperiment:
     def plot(self):
         pass
 
-    # None = all preceding, # = fixed preceding
+    # None = all preceding, # = fixed preceding, float = fraction of preceding
     def window_size(self):
         return None
 
@@ -93,14 +94,14 @@ class NextActionExperiment(GenerationExperiment):
     def window_size(self):
         return 1
 
-    def stopping_criteria(self, context_length: int = 0):
+    def stopping_criteria(self, context_length: int = 0, total_length: int = 0):
         return StoppingCriteriaList(
             [
                 MaxLengthCriteria(max_length=context_length + 3),
             ]
         )
 
-    def eval_generation(self, output_df, label_df):
+    def eval_generation(self, output_df=None, label_df=None, output_tokens=None, label_tokens=None):
         # Get the next action
         next_action = label_df.iloc[0]
         # Get the predicted next action
@@ -180,14 +181,105 @@ class NextActionExperiment(GenerationExperiment):
 
         print(out)
 
-
-
-# Next correct METRIC\_NAME takes how many actions?
-class CorrectAppearance(GenerationExperiment):
-    def __init__(self, vocab=None, model=None):
-        super().__init__(vocab=vocab, model=model)
+class ScoringExperiment(GenerationExperiment):
+    # Gets the ROUGE scores for the generated rows.
+    def __init__(self, config: dict,
+                path_prefix: str,
+                vocab: EHRVocab,
+                model: str,
+                *args,
+                **kwargs):
+        super().__init__(config, path_prefix, vocab, model, *args, **kwargs)
+        self.rouge_L_scores_by_field = defaultdict(list)
+        self.rouge_scores_by_field = defaultdict(list)
         self.total_seen = 0
 
+        self.bleu = evaluate.load("bleu")
+        self.rouge = evaluate.load("rouge")
+
+    def window_size(self):
+        return 0.5
+
+    def stopping_criteria(self, context_length: int = 0, total_length: int = 0):
+        return StoppingCriteriaList([
+            MaxLengthCriteria(max_length=total_length),
+        ])
+
+    def eval_generation(self, output_df=None, label_df=None, output_tokens=None, label_tokens=None):
+        predictions_by_field = defaultdict(list)
+        label_by_field = defaultdict(list)
+        fn = len(output_df.columns)
+        for i in range(fn):
+            # Get the strided output and label
+            max_idx = (output_df.shape[0] - 1) * output_df.shape[1] + i + 1
+            field = output_df.columns[i]
+            predictions_by_field[field] = [str(x) for x in output_tokens[i:max_idx:fn].tolist()]
+            label_by_field[field] = [str(x) for x in label_tokens[i:max_idx:fn].tolist()]
+            rouge_field = self.rouge.compute(predictions=predictions_by_field[field], references=label_by_field[field], rouge_types=["rouge1", "rougeL"], use_aggregator=True)
+            self.rouge_L_scores_by_field[field].append(
+                rouge_field["rougeL"]
+            )
+            self.rouge_scores_by_field[field].append(
+                rouge_field["rouge1"]
+            )
+        pred_all = [str(x) for x in output_tokens.tolist()]
+        label_all = [str(x) for x in label_tokens[:len(pred_all)].tolist()]
+        rouge_all = self.rouge.compute(predictions=pred_all, references=label_all, rouge_types=["rouge1", "rougeL"], use_aggregator=True)
+        self.rouge_L_scores_by_field["All"].append(
+            rouge_all["rougeL"]
+        )
+        self.rouge_scores_by_field["All"].append(
+            rouge_all["rouge1"]
+        )
+        self.total_seen += 1
+
+    def examples_seen(self):
+        return self.total_seen
+
+    def on_finish(self):
+        model_type = self.model.replace(os.sep, "_")
+        model_path = os.path.join(
+            self._exp_cache_path(), f"{model_type}.pkl"
+        )
+        os.makedirs(os.path.dirname(model_path), exist_ok=True)
+        with open(model_path, "wb") as f:
+            pickle.dump(
+                {
+                    "total_seen": self.total_seen,
+                    "rouge_scores_by_field": self.rouge_scores_by_field,
+                    "rouge_L_scores_by_field": self.rouge_L_scores_by_field,
+                },
+                f,
+            )
+
+    def plot(self):
+        model_versions = os.listdir(self._exp_cache_path())
+
+        rows = []
+        for model_version in model_versions:
+            model_path = os.path.join(self._exp_cache_path(), model_version)
+            with open(model_path, "rb") as f:
+                model_data = pickle.load(f)
+            model_type = model_version.replace(".pkl", "").split("_")
+            model_type = f"{model_type[0]}-{model_type[1]}.{model_type[2]}"
+            rows.append({
+                ("", "Model"): model_type,
+                ("ROUGE-1", "METRIC_NAME"): np.mean(model_data["rouge_scores_by_field"]["METRIC_NAME"]),
+                ("ROUGE-1", "PAT_ID"): np.mean(model_data["rouge_scores_by_field"]["PAT_ID"]),
+                ("ROUGE-1", "ACCESS_TIME"): np.mean(model_data["rouge_scores_by_field"]["ACCESS_TIME"]),
+                ("ROUGE-1", "All"): np.mean(model_data["rouge_scores_by_field"]["All"]),
+                ("ROUGE-L", "METRIC_NAME"): np.mean(model_data["rouge_L_scores_by_field"]["METRIC_NAME"]),
+                ("ROUGE-L", "PAT_ID"): np.mean(model_data["rouge_L_scores_by_field"]["PAT_ID"]),
+                ("ROUGE-L", "ACCESS_TIME"): np.mean(model_data["rouge_L_scores_by_field"]["ACCESS_TIME"]),
+                ("ROUGE-L", "All"): np.mean(model_data["rouge_L_scores_by_field"]["All"]),
+            })
+        df = pd.DataFrame(rows, columns=rows[0].keys())
+        df = df.sort_values(by=[("", "Model")], ascending=False)
+        out = df.to_latex(index=False,
+                    float_format="%.3f",
+                    caption="ROUGE-1 and ROUGE-L scores for the generated rows.",
+                    label="tab:next_action_results")
+        print(out)
 
 if __name__ == "__main__":
     # Get arguments
@@ -262,9 +354,11 @@ if __name__ == "__main__":
     if len(model_list) == 0:
         raise ValueError(f"No models found in {format(model_paths)}")
 
+    model_list = sorted(model_list)
+
     if args.model is None:
         print("Select a model to evaluate:")
-        for i, model in enumerate(sorted(model_list)):
+        for i, model in enumerate(model_list):
             print(f"{i}: {model}")
 
         model_idx = int(input("Model index >>>"))
@@ -284,8 +378,24 @@ if __name__ == "__main__":
     vocab = EHRVocab(
         vocab_path=os.path.normpath(os.path.join(path_prefix, config["vocab_path"]))
     )
-    model = EHRAuditGPT2.from_pretrained(model_path, vocab=vocab)
+    types = {
+        "gpt2": EHRAuditGPT2,
+        "rwkv": EHRAuditRWKV,
+        "llama": EHRAuditLlama,
+    }
+
+    model_type = model_list[model_idx].split(os.sep)[0]
+    model = types[model_type].from_pretrained(model_path, vocab=vocab)
     model.to(device)
+
+    if isinstance(model, EHRAuditGPT2):
+        model.generation_config.pad_token_id = model.generation_config.eos_token_id
+    elif isinstance(model, EHRAuditLlama):
+        model.generation_config.eos_token_id = 0
+        model.generation_config.pad_token_id = model.generation_config.eos_token_id
+    elif isinstance(model, EHRAuditRWKV):
+        model.generation_config.eos_token_id = 0
+        model.generation_config.pad_token_id = model.generation_config.eos_token_id
 
     dm = EHRAuditDataModule(
         yaml_config_path=config_path,
@@ -328,9 +438,14 @@ if __name__ == "__main__":
                 eos_index = nonzeros[0][0].item() - 1
 
             row_count = (eos_index - 1) // row_len
-            if row_count <= exp.window_size() // row_len:  # Not applicable
+            min_rows = exp.window_size()
+            if 0 < min_rows <= 1:
+                min_rows = int(1 / min_rows)
+
+            if row_count <= min_rows:  # Not applicable
                 continue
-            for i in range(1, row_count):
+
+            for i in range(min_rows, row_count):
                 window_size = i * row_len
 
                 # Copy the labels, and zero out past the window length.
@@ -340,7 +455,7 @@ if __name__ == "__main__":
                 # Stack them to the beam size
 
                 # Stopping criteria
-                sc_list = exp.stopping_criteria(window_size)
+                sc_list = exp.stopping_criteria(context_length=window_size, total_length=row_count * row_len)
 
                 # Process logits so that only tokens in the correct field are allowed
                 logits_processor = LogitsProcessorList(
@@ -349,8 +464,6 @@ if __name__ == "__main__":
                     ]
                 )
 
-                if isinstance(model, EHRAuditGPT2):
-                    model.generation_config.pad_token_id = model.generation_config.eos_token_id
 
                 # Generate the outputs from the window.
                 if args.search == "greedy":
@@ -380,7 +493,10 @@ if __name__ == "__main__":
                     )
                 elif "beam" in args.search:
                     # Errors out with CUBLAS_STATUS_NOT_INITIALIZED, not sure why
-                    beam_size = int(args.search.split(":")[1])
+                    opts = args.search.split(":")
+                    if len(opts) == 1:
+                        opts.append("5")
+                    beam_size = int(opts[1])
                     input_ids_c = input_ids_c.repeat(beam_size, input_ids.size(1)).to(device)
 
                     beam_scorer = BeamSearchScorer(
@@ -397,12 +513,17 @@ if __name__ == "__main__":
                     )
 
                 # Decode the outputs
-                predictions: DataFrame = tk.decode(outputs[0, window_size:].cpu().numpy())
-                labels: DataFrame = tk.decode(input_ids[0, window_size:].cpu().numpy())
+                output_tokens = outputs[0, window_size:].cpu().numpy()
+                predictions: DataFrame = tk.decode(output_tokens)
+                label_tokens = input_ids[0, window_size:].cpu().numpy()
+                labels: DataFrame = tk.decode(label_tokens)
 
-                exp.eval_generation(predictions, labels)
+                exp.eval_generation(output_df=predictions, label_df=labels, output_tokens=output_tokens, label_tokens=label_tokens)
                 pbar.n = exp.examples_seen()
                 pbar.refresh()
+                if isinstance(exp, ScoringExperiment):
+                    # Only score one batch at a time
+                    break
                 """
                 # Change the indicies of predictions and full_input to a multi-index
                 full_input.columns = pd.MultiIndex.from_tuples(
