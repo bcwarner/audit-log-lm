@@ -745,6 +745,9 @@ class MaxMinAverageSessionExperiment(Experiment):
     # Find example sessions with minimum, maximum, and around average session length, then print out tables of them.
     def __init__(self, config, path_prefix, vocab, model, *args, **kwargs):
         super().__init__(config, path_prefix, vocab, model, *args, **kwargs)
+        self.target_id = self.vocab.field_to_token("METRIC_NAME", "Inpatient Patient Lists list loaded")
+        self.target_session = None
+        self.target_entropy = torch.tensor([0.0])
         self.min_session = []
         self.min_session_entropy = torch.tensor([torch.inf])
         self.max_session = []
@@ -759,6 +762,8 @@ class MaxMinAverageSessionExperiment(Experiment):
         if torch.any(self.cur_session):
             # Normalize the entropy by the length of the session
             entropy = torch.tensor(self.cur_session_entropy)
+            # Index of first zero in the session
+            cur_session_len = self.cur_session.nonzero()[-1][0] + 1
             avg_entropy = torch.mean(entropy)
             # Update the min, max, and average sessions
             if avg_entropy < torch.mean(self.min_session_entropy):
@@ -770,6 +775,13 @@ class MaxMinAverageSessionExperiment(Experiment):
             if np.abs(avg_entropy - 1) < np.abs(torch.mean(self.avg_session_entropy) - 1):
                 self.avg_session_entropy = entropy
                 self.avg_session = self.cur_session
+            target_session_len = (self.cur_session.nonzero()[-1][0] + 1) if self.target_session is not None else 0
+            if self.target_id in self.cur_session \
+                    and cur_session_len > target_session_len \
+                    and cur_session_len <= 3 * 40\
+                    and self.cur_session[0] != self.target_id:
+                self.target_session = self.cur_session
+                self.target_entropy = entropy
 
         self.cur_session_entropy = []
         self.cur_session = sequence
@@ -806,6 +818,8 @@ class MaxMinAverageSessionExperiment(Experiment):
                     "min_session_entropy": self.min_session_entropy,
                     "max_session": self.max_session,
                     "max_session_entropy": self.max_session_entropy,
+                    "target_session": self.target_session,
+                    "target_session_entropy": self.target_entropy,
                 },
                 f,
             )
@@ -828,10 +842,12 @@ class MaxMinAverageSessionExperiment(Experiment):
         average_session = tk.decode(data["avg_session"].tolist())
         min_session = tk.decode(data["min_session"].tolist())
         max_session = tk.decode(data["max_session"].tolist())
+        target_session = tk.decode(data["target_session"].tolist())
         # Add the row entropies to the decoded sessions
         average_session["Row Entropy"] = ["-"] + data["avg_session_entropy"].tolist()
         min_session["Row Entropy"] = ["-"] + data["min_session_entropy"].tolist()
         max_session["Row Entropy"] = ["-"] + data["max_session_entropy"].tolist()
+        target_session["Row Entropy"] = ["-"] + data["target_session_entropy"].tolist()
 
         # Print the sessions
         print(average_session.to_latex(index=False,
@@ -839,6 +855,8 @@ class MaxMinAverageSessionExperiment(Experiment):
         print(min_session.to_latex(index=False,
                                       float_format="%.3f",))
         print(max_session.to_latex(index=False,
+                                        float_format="%.3f",))
+        print(target_session.to_latex(index=False,
                                         float_format="%.3f",))
 
 
