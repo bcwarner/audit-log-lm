@@ -1,4 +1,6 @@
 # Contains models for the EHR audit log dataset.
+# Dataloader for EHR audit log dataset, based on tabular transformers from Padhi et al. (2021)
+# Portions adapted from HF transformers.
 from typing import List
 
 import torch

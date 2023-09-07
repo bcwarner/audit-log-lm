@@ -68,7 +68,9 @@ class EHRVocab:
 
     def save(self):
         with open(self.vocab_path, "wb") as f:
-            pickle.dump(self.__dict__, f)
+            res_dict = self.__dict__.copy()
+            del res_dict["vocab_path"]
+            pickle.dump(res_dict, f)
 
     def field_to_token(self, field, value):
         if value not in self.field_tokens[field]:

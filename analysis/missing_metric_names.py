@@ -1,4 +1,3 @@
-# Loads all datasets for each physician and calculates the characteristics for each dataset.
 import argparse
 import os
 import pandas as pd

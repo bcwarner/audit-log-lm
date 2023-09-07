@@ -17,11 +17,6 @@ sys.path.append(os.path.dirname(os.path.abspath(os.curdir)))
 from model.data import EHRAuditDataset
 
 if __name__ == "__main__":
-    # Arguments:
-    # - Single or all providers
-    # - What delineates a shift (default > 4 hours)
-    # - Which of the log files to use
-
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--provider", type=str, default=None, help="The provider to analyze."
