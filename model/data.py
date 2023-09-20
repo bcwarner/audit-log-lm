@@ -85,7 +85,9 @@ class EHRAuditDataset(Dataset):
 
         if self.timestamp_spaces is None and self.should_tokenize is True:
             raise ValueError("Tokenization depends on timestamp binning.")
-        self.cache = cache + (("_" + str(self.max_length)) if self.max_length != 1024 else "")
+        self.cache = cache + (
+            ("_" + str(self.max_length)) if self.max_length != 1024 else ""
+        )
 
     def load(self):
         """
@@ -236,16 +238,7 @@ class EHRAuditDataset(Dataset):
                     # Make sure the chunks are aligned so every column lines up.
                     tokenized_example = list(torch.split(tokenized_example, chunk_size))
 
-                    # Pad the last chunk if necessary
-                    if len(tokenized_example[-1]) % len(tokenized_cols) != 0:
-                        tokenized_example[-1] = torch.cat(
-                            [
-                                tokenized_example[-1],
-                                torch.zeros(
-                                    chunk_size - len(tokenized_example[-1])
-                                ),
-                            ]
-                        )
+                    # No need for token padding at the end.
 
                     tokenized_seqs.extend(tokenized_example)
                     # Assign the indices
@@ -284,7 +277,10 @@ class EHRAuditDataset(Dataset):
                 pickle.dump(self.len, f)
 
             torch.save(self.seqs, os.path.normpath(os.path.join(cache_path, "seqs.pt")))
-            torch.save(self.seqs_indices, os.path.normpath(os.path.join(cache_path, "seqs_indices.pt")))
+            torch.save(
+                self.seqs_indices,
+                os.path.normpath(os.path.join(cache_path, "seqs_indices.pt")),
+            )
 
     def load_from_cache(self, length=True, seqs=False):
         """
@@ -309,9 +305,7 @@ class EHRAuditDataset(Dataset):
                 os.path.normpath(os.path.join(cache_path, "seqs.pt"))
             )
             self.seqs_indices = torch.load(
-                os.path.normpath(
-                    os.path.join(cache_path, "seqs_indices.pt")
-                )
+                os.path.normpath(os.path.join(cache_path, "seqs_indices.pt"))
             )
 
     def __getitem__(self, item):
