@@ -139,9 +139,9 @@ class EHRAuditDataset(Dataset):
         for i, row in df.iterrows():
             if row[self.timestamp_col] > sep_sec:
                 df.loc[i, self.timestamp_col] = 0
-                seq_end_idx = i
+                seq_end_idx = i - 1
                 seqs_shifts.append(df.loc[seq_start_idx:seq_end_idx, :].copy())
-                seq_start_idx = seq_end_idx
+                seq_start_idx = i
 
         # Append the last shift
         seqs_shifts.append(df.loc[seq_start_idx:, :].copy())
@@ -157,23 +157,27 @@ class EHRAuditDataset(Dataset):
         # Separate the data into sessions.
         sep_sec = self.session_sep_min * 60
         seqs = []
+        seqs_indices = []
         for shift in seqs_shifts:
-            seq_start_idx = 0
+            seq_start_idx = shift.index[0]
             # Reset the index
-            shift = shift.reset_index(drop=True)
             for i, row in shift.iterrows():
                 if row[self.timestamp_col] > sep_sec:
                     shift.loc[i, self.timestamp_col] = 0  # Reset the time delta to 0.
-                    seq_end_idx = i
+                    seq_end_idx = i - 1
                     new_seq = shift.loc[seq_start_idx:seq_end_idx, :].copy()
                     seqs.append(new_seq)
-                    seq_start_idx = seq_end_idx
+                    seq_start_idx = i
 
             # Append the last shift
             seqs.append(shift.loc[seq_start_idx:, :].copy())
 
+        for seq in seqs:
+            seqs_indices.append((seq.index[0], seq.index[-1]))
+
         # Also convert the events to the corresponding vocab value.
         self.seqs = seqs
+        self.seqs_indices = seqs_indices
 
         # TODO: Ensure that the vocab responds to timestamp_bins.spacing
         if self.timestamp_spaces is not None:
@@ -196,11 +200,15 @@ class EHRAuditDataset(Dataset):
             # Order from least likely to be zero to most likely to be zero.
             tokenized_cols = self.event_type_cols + [self.user_col, self.timestamp_col]
             tokenized_seqs = []
+            tokenized_seqs_indices = []
             chunk_size = self.max_length
             chunk_size -= chunk_size % len(tokenized_cols)
+            chunk_row_size = chunk_size // len(tokenized_cols)
 
             for s in self.seqs:  # Iterate each sequence
                 tokenized_example = []
+                start_idx = s.index[0]
+                end_idx = s.index[-1]
                 for i, row in s.iterrows():  # Iterate each row
                     tokenized_example.extend(
                         [
@@ -226,17 +234,42 @@ class EHRAuditDataset(Dataset):
                     and len(tokenized_example) > self.max_length
                 ):
                     # Make sure the chunks are aligned so every column lines up.
-                    tokenized_example = torch.split(tokenized_example, chunk_size)
+                    tokenized_example = list(torch.split(tokenized_example, chunk_size))
 
-                    # Get rid of the last example if it's not long enough.
+                    # Pad the last chunk if necessary
                     if len(tokenized_example[-1]) % len(tokenized_cols) != 0:
-                        tokenized_example = tokenized_example[:-1]
+                        tokenized_example[-1] = torch.cat(
+                            [
+                                tokenized_example[-1],
+                                torch.zeros(
+                                    chunk_size - len(tokenized_example[-1])
+                                ),
+                            ]
+                        )
+
                     tokenized_seqs.extend(tokenized_example)
+                    # Assign the indices
+                    for i in range(len(tokenized_example)):
+                        if i != len(tokenized_example) - 1:
+                            tokenized_seqs_indices.append(
+                                (
+                                    start_idx + i * chunk_row_size,
+                                    start_idx + (i + 1) * chunk_row_size - 1,
+                                )
+                            )
+                        else:
+                            tokenized_seqs_indices.append(
+                                (
+                                    start_idx + i * chunk_row_size,
+                                    end_idx,
+                                )
+                            )
                 else:
                     tokenized_seqs.append(tokenized_example)
+                    tokenized_seqs_indices.append((start_idx, end_idx))
 
             self.seqs = tokenized_seqs
-
+            self.seqs_indices = tokenized_seqs_indices
             self.len = len(self.seqs)
 
         if self.cache is not None:
@@ -251,6 +284,7 @@ class EHRAuditDataset(Dataset):
                 pickle.dump(self.len, f)
 
             torch.save(self.seqs, os.path.normpath(os.path.join(cache_path, "seqs.pt")))
+            torch.save(self.seqs_indices, os.path.normpath(os.path.join(cache_path, "seqs_indices.pt")))
 
     def load_from_cache(self, length=True, seqs=False):
         """
@@ -273,6 +307,11 @@ class EHRAuditDataset(Dataset):
         if seqs:
             self.seqs = torch.load(
                 os.path.normpath(os.path.join(cache_path, "seqs.pt"))
+            )
+            self.seqs_indices = torch.load(
+                os.path.normpath(
+                    os.path.join(cache_path, "seqs_indices.pt")
+                )
             )
 
     def __getitem__(self, item):
