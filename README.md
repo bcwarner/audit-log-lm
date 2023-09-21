@@ -24,4 +24,4 @@ Some brief statistics were run using `analysis/dataset_characteristics.py`, we h
 
 Not all METRIC_NAMEs in the dataset were in our initial METRIC_NAME dictionary, so we made `analysis/missing_metric_names.py` to find them.
 
-Because our training was interrupted and restarted several times, we wrote `analysis/tb_join_plot.py` to join them.
+Because our training was interrupted and restarted several times, we wrote `analysis/tb_join_plot.py` to join the Tensorboard output.
