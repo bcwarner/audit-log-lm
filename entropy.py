@@ -1042,7 +1042,7 @@ if __name__ == "__main__":
             ce_current = []
 
             row_len = len(vocab.field_ids) - 1  # Exclude special fields
-            row_count = (eos_index - 1) // row_len
+            row_count = eos_index // row_len
             if row_count <= 1:  # Not applicable
                 continue
 

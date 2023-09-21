@@ -161,18 +161,23 @@ class EHRAuditDataset(Dataset):
         seqs = []
         seqs_indices = []
         for shift in seqs_shifts:
-            seq_start_idx = shift.index[0]
+            seq_start_idx = 0 #shift.index[0]
             # Reset the index
-            for i, row in shift.iterrows():
+            for i, (_, row) in enumerate(shift.iterrows()):
                 if row[self.timestamp_col] > sep_sec:
-                    shift.loc[i, self.timestamp_col] = 0  # Reset the time delta to 0.
                     seq_end_idx = i - 1
-                    new_seq = shift.loc[seq_start_idx:seq_end_idx, :].copy()
-                    seqs.append(new_seq)
+                    new_seq = shift.iloc[seq_start_idx:seq_end_idx, :].copy()
                     seq_start_idx = i
+                    if len(new_seq) == 0:
+                        continue
+                    new_seq.iloc[0, new_seq.columns.get_loc(self.timestamp_col)] = 0
+                    seqs.append(new_seq)
+
 
             # Append the last shift
-            seqs.append(shift.loc[seq_start_idx:, :].copy())
+            last_seq = shift.iloc[seq_start_idx:, :].copy()
+            last_seq.iloc[0, last_seq.columns.get_loc(self.timestamp_col)] = 0
+            seqs.append(last_seq)
 
         for seq in seqs:
             seqs_indices.append((seq.index[0], seq.index[-1]))
