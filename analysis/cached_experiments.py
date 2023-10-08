@@ -1,9 +1,12 @@
 # Collects all cached versions of the entropy data and runs experiments atop them.
 import os
+import pickle
+
 import pandas as pd
 import numpy as np
 import torch
 import yaml
+from matplotlib import pyplot as plt
 from tqdm import tqdm
 from collections import defaultdict
 from typing import Dict, List, Tuple, Optional, Union
@@ -17,9 +20,112 @@ from model.vocab import EHRVocab
 # - Support both provider-aware and provider-unaware cache data.
 # - Support multiple cached results, distinguishing between both sets.
 
+class Experiment:
+    def __init__(
+        self,
+        config: dict,
+        path_prefix: str,
+        vocab: EHRVocab,
+        model: str,
+        *args,
+        **kwargs,
+    ):
+        self.config = config
+        self.path_prefix = path_prefix
+        self.vocab = vocab
+        self.model = model
+
+    def requirements(self):
+        """
+        Returns a list of requirements for this experiment.
+        """
+        return {
+            "logs": False,
+            "provider_aware": False,
+            "provider_unaware": False,
+            "comparison": "union", # Can be union or intersection
+        }
+
+    def _exp_cache_path(self):
+        return os.path.normpath(
+            os.path.join(
+                self.path_prefix,
+                self.config["results_path"],
+                f"exp_cache_{self.__class__.__name__}",
+            )
+        )
+
+    def map(self,
+            provider=None,
+            audit_log_df: pd.DataFrame = None,
+            provider_aware_df: Dict[str, pd.DataFrame] = None,
+            provider_unaware_df: Dict[str, pd.DataFrame] = None,
+            ):
+        return None
+
+    def on_finish(self, results: Dict[str, pd.DataFrame]):
+        return None
+
+    def plot(self):
+        # Reset matplotlib figure size, etc.
+        plt.rcParams.update(plt.rcParamsDefault)
+        plt.clf()
+        plt.gcf().set_size_inches(5, 5)
+
+class PerFieldEntropyExperiment(Experiment):
+    # Just records the entropy of each field as well as overall.
+    def __init__(self, config, path_prefix, vocab, model, *args, **kwargs):
+        super().__init__(config, path_prefix, vocab, model, *args, **kwargs)
+        self.field_entropies = defaultdict(list)
+        self.row_entropies = []
+        self._samples_seen = 0
+
+    def requirements(self):
+        return {
+            "logs": False,
+            "provider_aware": True,
+            "provider_unaware": True,
+            "comparison": "union",
+        }
+
+    def map(self,
+            provider=None,
+            audit_log_df: pd.DataFrame = None,
+            provider_aware_df: Dict[str, pd.DataFrame] = None,
+            provider_unaware_df: Dict[str, pd.DataFrame] = None,
+            ):
+        # field => model => entropy count, average, std
+        results = defaultdict(lambda: defaultdict(int))
+        for k, df in {**provider_aware_df, **provider_unaware_df}.items():
+            # Iterate each of the fields in the df and aggregate the entropy.
+            for field in df.columns:
+                results[field][k] = df[field].count(), df[field].mean(), df[field].std()
+            
+
+    def on_finish(self, results: Dict[str, pd.DataFrame]):
+        model_type = self.model.replace(os.sep, "_")
+        model_path = os.path.join(
+            self._exp_cache_path(), f"{model_type}.pt",
+        )
+        os.makedirs(os.path.dirname(model_path), exist_ok=True)
+        with open(model_path, "wb") as f:
+            pickle.dump(
+                {
+                    "field_entropies": self.field_entropies,
+                    "row_entropies": self.row_entropies,
+                    "model": self.model,
+                },
+                f,
+            )
+
 
 if __name__ == "__main__":
+    p = argparse.ArgumentParser()
+    p.add_argument("--experiment", type=str, default=None, help="The experiments to run.")
+    args = p.parse_args()
+
     # Load the config.
+
     # Get the list of models from the config file
     config_path = os.path.normpath(
         os.path.join(os.path.dirname(__file__), "config.yaml")
@@ -50,6 +156,9 @@ if __name__ == "__main__":
 
     if len(model_list) == 0:
         raise ValueError(f"No models found in {format(model_paths)}")
+
+
+
 
     # Load the data module and pull out the providers from there for the provider unaware models.from
     # All providers will be used (except for the one without one from the exclusion list).
