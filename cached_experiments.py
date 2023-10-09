@@ -54,7 +54,7 @@ class Experiment:
             os.path.join(
                 self.path_prefix,
                 self.config["results_path"],
-                f"exp_cache_{self.__class__.__name__}",
+                f"exp_cache_{self.__class__.__name__}.pkl",
             )
         )
 
@@ -110,27 +110,34 @@ class PerFieldEntropyExperiment(Experiment):
             
 
     def on_finish(self, results: Dict[str, object]):
-        entropy_scores = defaultdict(lambda: defaultdict(tuple))
-        provider_aware = []
-        provider_unaware = []
-        for result in results:
+        entropy_scores = defaultdict(lambda: defaultdict(lambda: (0, 0)))
+        provider_aware = set()
+        provider_unaware = set()
+        for provider, result in results.items():
             # Merge each of the results from each provider by field => provider, adjusting mean and std.
-            for field, model in result.items():
-                prev_count, prev_mean, prev_std = entropy_scores[field][model]
-                new_count, new_mean, new_std = result[field][model]
-                entropy_scores[field][model] = (
-                    prev_count + new_count,
-                    (prev_mean * prev_count + new_mean * new_count) / (prev_count + new_count),
-                )
-                if "USER_ID" in result[field][model].keys():
-                    provider_aware.append(field)
-                else:
-                    provider_unaware.append(field)
+            for field, models in result.items():
+                if "Unnamed: 0" in field:
+                    continue
+                for model, (new_count, new_mean) in models.items():
+                    prev_count, prev_mean = entropy_scores[model][field]
+                    entropy_scores[model][field] = (
+                        prev_count + new_count,
+                        (prev_mean * prev_count + new_mean * new_count) / (prev_count + new_count),
+                    )
+                    if "USER_ID" in result.keys():
+                        provider_aware.add(field)
+                    else:
+                        provider_unaware.add(field)
 
 
         self.field_entropies = entropy_scores
         self.provider_aware = provider_aware
         self.provider_unaware = provider_unaware
+
+        # Convert the nested defaultdicts to dicts.
+        self.field_entropies = {k: dict(v) for k, v in self.field_entropies.items()}
+        self.provider_aware = list(self.provider_aware)
+        self.provider_unaware = list(self.provider_unaware)
 
         with open(self._exp_cache_path(), "wb") as f:
             pickle.dump(
@@ -144,28 +151,42 @@ class PerFieldEntropyExperiment(Experiment):
 
     def plot(self):
         with open(self._exp_cache_path(), "rb") as f:
-            self.field_entropies = f["field_entropies"]
-            self.provider_aware = f["provider_aware"]
-            self.provider_unaware = f["provider_unaware"]
+            results = pickle.load(f)
+            self.field_entropies = results["field_entropies"]
+            self.provider_aware = results["provider_aware"]
+            self.provider_unaware = results["provider_unaware"]
 
         model_count = len(self.provider_unaware) + len(self.provider_aware)
         model_count_unaware = len(self.provider_unaware)
+
+        # Convert the nested default dict to a dict
+        self.field_entropies = {k: defaultdict(lambda: (0, 0), v) for k, v in self.field_entropies.items()}
 
         # Plot the field entropies
         plt.clf()
         fig, ax = plt.gcf(), plt.gca()
         width = 0.1
-        field_labels = ["METRIC_NAME", "PAT_ID", "ACCESS_TIME", "USER_ID"]
-        range = np.arange(len(field_labels))
+        field_labels = ["METRIC_NAME", "PAT_ID", "ACCESS_TIME"]
+        field_labels_aware = field_labels + ["USER_ID"]
+        range = np.arange(len(field_labels_aware))
         max_ht = 0
-        for idx, key in enumerate(self.field_entropies.keys()):
-            hts = [2 ** np.mean(self.field_entropies[key][k]) for k in range]
-            max_ht = max(max_ht, max(hts))
-            rects = ax.barh(range + (idx * width), height=width, width=hts, label=key)
-            ax.bar_label(rects, fmt="%.4f")
+        sorted_keys = sorted(self.field_entropies.keys())
+        for idx, key in enumerate(sorted_keys):
+            key_nice = key.replace("entropy-", "").replace("_", ".").replace(".csv", "")
+            if "USER_ID" in self.field_entropies[key].keys():
+                hts = [2 ** np.mean(self.field_entropies[key][k][1]) for k in field_labels_aware]
+                max_ht = max(max_ht, max(hts))
+                key_nice += " (PA)"
+                rects = ax.barh(range + (idx * width), height=width, width=hts, label=key_nice)
+                ax.bar_label(rects, fmt="%.4f")
+            else:
+                hts = [2 ** np.mean(self.field_entropies[key][k][1]) for k in field_labels]
+                max_ht = max(max_ht, max(hts))
+                rects = ax.barh(range[:-1] + (idx * width), height=width, width=hts, label=key_nice)
+                ax.bar_label(rects, fmt="%.4f")
 
         ax.set_xlim(0, 1.25 * max_ht)
-        ax.set_yticks(range + (width * model_count) / 2, field_labels)
+        ax.set_yticks(range + (width * model_count) / 2, field_labels_aware)
         ax.set_xlabel("Perplexity")
         ax.set_title("Perplexity by Field")
         fig.tight_layout()
@@ -284,6 +305,8 @@ if __name__ == "__main__":
                 provider_aware_df=provider_aware_df,
                 provider_unaware_df=provider_unaware_df,
             )
+
+        return results
 
     # Dispatch jobs for each proivder in the directory
     providers = os.listdir(data_path)
