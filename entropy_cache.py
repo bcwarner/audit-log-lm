@@ -57,6 +57,7 @@ if __name__ == "__main__":
         action="store_true",
         help="Whether to verify the entropy values line up with the dataset.",
     )
+    # To add if needed: delete cached entropy values
     args = parser.parse_args()
     # Get the list of models from the config file
     config_path = os.path.normpath(
@@ -155,7 +156,14 @@ if __name__ == "__main__":
 
     cur_provider = None
     providers_seen = set()
+    providers_cached = set()
     pbar = tqdm(enumerate(dl), total=len(dl))
+    model_path_name = f"entropy-{model_name}.csv"
+
+    # See what providers have been cached already.
+    for provider in os.listdir(os.path.normpath(os.path.join(path_prefix, config["audit_log_path"]))):
+        if os.path.exists(os.path.normpath(os.path.join(path_prefix, config["audit_log_path"], provider, model_path_name))):
+            providers_cached.add(provider)
     for batch_idx, batch in pbar:
         input_ids, labels = batch
 
@@ -168,16 +176,34 @@ if __name__ == "__main__":
                 eos_index = nonzeros[0][0].item() - 1
 
             # Copy the labels and targets
-            input_ids_c = torch.zeros_like(input_ids)
-            labels_c = labels.clone()
+            #input_ids_c = torch.zeros_like(input_ids)
+            #labels_c = labels.clone()
             # Set the labels to -100, zero out the input_ids
-            labels_c[:, :] = -100
+            #labels_c[:, :] = -100
 
             # Get the index of the current row in the whole df
             dset_idx = bisect.bisect_right(dl.dataset.cumulative_sizes, batch_idx)
             dset_start_idx = dl.dataset.cumulative_sizes[dset_idx - 1] if dset_idx > 0 else 0
             dset = dl.dataset.datasets[dset_idx]
             provider = dset.provider
+
+            #if provider in providers_cached:
+            #    continue
+
+            if provider != cur_provider:
+                providers_seen.add(provider)
+
+                pbar.set_postfix({"providers": len(providers_seen)})
+                if cur_provider is not None:
+                    # Save the entropy map
+                    prov_path = os.path.normpath(os.path.join(path_prefix, config["audit_log_path"], cur_provider))
+                    # Convert entropy_map to a df with its keys as indicies
+                    entropy_df = pd.DataFrame.from_dict(whole_set_entropy_map[cur_provider], orient="index")
+                    entropy_df.to_csv(os.path.normpath(os.path.join(prov_path, model_path_name)))
+                    providers_cached.add(cur_provider)
+
+                # Always set this
+                cur_provider = provider
 
             ce_current = []
             row_len = len(vocab.field_ids) - 1  # Exclude special fields
@@ -191,39 +217,37 @@ if __name__ == "__main__":
             # NOTE: Next-token generation != next-row generation
             # This means that we include the next two tokens in the input to avoid EOS predictions.
 
-            if provider != cur_provider:
-                providers_seen.add(provider)
-                cur_provider = provider
-                pbar.set_postfix({"providers": len(providers_seen)})
+
 
             # Add a NA for the first row.
             whole_set_entropy_map[provider][dset.seqs_indices[batch_idx - dset_start_idx][0]]["METRIC_NAME"] = pd.NA
             whole_set_entropy_map[provider][dset.seqs_indices[batch_idx - dset_start_idx][0]]["PAT_ID"] = pd.NA
             whole_set_entropy_map[provider][dset.seqs_indices[batch_idx - dset_start_idx][0]]["ACCESS_TIME"] = pd.NA
 
-            for i in range(0, row_count):
-                input_ids_start = i * row_len
-                input_ids_end = input_ids_start + row_len
-                input_ids_end_extra = input_ids_end + row_len
-                # Get the current row
-                input_ids_c[:, input_ids_start:input_ids_end_extra] = input_ids[
-                    :, input_ids_start:input_ids_end_extra
-                ]
-                # Labels are next row.
-                labels_row_start = (i + 1) * row_len
-                labels_row_end = labels_row_start + row_len
-                labels_c[:, labels_row_start:labels_row_end] = labels[
-                    :, labels_row_start:labels_row_end
-                ]
+            # Calculate the cross entropy
+            output = model(input_ids.to(device), labels=labels.to(device), return_dict=True)
+            loss = output.loss.cpu().numpy()
 
-                # Calculate the cross entropy
-                output = model(input_ids_c.to(device), labels=labels_c.to(device), return_dict=True)
-                loss = output.loss.cpu().numpy()
-                metric_loss = loss[METRIC_NAME_COL, i]
+            for i in range(1, row_count - 1):
+                #input_ids_start = (i - 1) * row_len
+                #input_ids_end = input_ids_start + row_len
+                #input_ids_end_extra = input_ids_end + row_len
+                ## Get the current row
+                #input_ids_c[:, input_ids_start:input_ids_end_extra] = input_ids[
+                #    :, input_ids_start:input_ids_end_extra
+                #]
+                ## Labels are next row.
+                #labels_row_start = (i) * row_len
+                #labels_row_end = labels_row_start + row_len
+                #labels_c[:, labels_row_start:labels_row_end] = labels[
+                #    :, labels_row_start:labels_row_end
+                #]
+
+                metric_loss = loss[METRIC_NAME_COL, i - 1]
                 patient_loss = loss[PAT_ID_COL, i]
                 time_loss = loss[ACCESS_TIME_COL, i]
 
-                whole_row_idx = dset.seqs_indices[batch_idx - dset_start_idx][0] + (i + 1)
+                whole_row_idx = dset.seqs_indices[batch_idx - dset_start_idx][0] + i
                 # +1 to account for the first row being the header
 
                 whole_set_entropy_map[provider][whole_row_idx]["METRIC_NAME"] = metric_loss
@@ -246,5 +270,5 @@ if __name__ == "__main__":
                 if not entropy_df.loc[start, :].isna().all():
                     raise ValueError(f"First value is not NA for sequence range {start}:{stop}.")
 
-        entropy_df.to_csv(os.path.normpath(os.path.join(prov_path, f"entropy-{model_name}.csv")))
+        entropy_df.to_csv(os.path.normpath(os.path.join(prov_path, model_path_name)))
 
