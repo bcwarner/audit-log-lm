@@ -217,8 +217,6 @@ if __name__ == "__main__":
             # NOTE: Next-token generation != next-row generation
             # This means that we include the next two tokens in the input to avoid EOS predictions.
 
-
-
             # Add a NA for the first row.
             whole_set_entropy_map[provider][dset.seqs_indices[batch_idx - dset_start_idx][0]]["METRIC_NAME"] = pd.NA
             whole_set_entropy_map[provider][dset.seqs_indices[batch_idx - dset_start_idx][0]]["PAT_ID"] = pd.NA
@@ -228,7 +226,7 @@ if __name__ == "__main__":
             output = model(input_ids.to(device), labels=labels.to(device), return_dict=True)
             loss = output.loss.cpu().numpy()
 
-            for i in range(1, row_count - 1):
+            for i in range(1, row_count):
                 #input_ids_start = (i - 1) * row_len
                 #input_ids_end = input_ids_start + row_len
                 #input_ids_end_extra = input_ids_end + row_len
