@@ -442,10 +442,11 @@ if __name__ == "__main__":
             if 0 < min_rows <= 1:
                 min_rows = int(1 / min_rows)
 
-            if row_count <= min_rows:  # Not applicable
+            if row_count <= min_rows or row_count <= 2:  # Not applicable
                 continue
 
-            for i in range(min_rows, row_count):
+
+            for i in range(min_rows, row_count - 1):
                 window_size = i * row_len
 
                 # Copy the labels, and zero out past the window length.
