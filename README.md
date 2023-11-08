@@ -1,3 +1,7 @@
+# Autoregressive Language Models For Estimating the Entropy of Epic EHR Audit Logs
+
+T
+
 ## Installation
 Use `pip install -r requirements.txt` to install the required packages. If updated ` pipreqs . --savepath
 requirements.txt --ignore Sophia` to update. Use `git submodule update --init --recursive` to get Sophia.
@@ -25,3 +29,11 @@ Some brief statistics were run using `analysis/dataset_characteristics.py`, we h
 Not all METRIC_NAMEs in the dataset were in our initial METRIC_NAME dictionary, so we made `analysis/missing_metric_names.py` to find them.
 
 Because our training was interrupted and restarted several times, we wrote `analysis/tb_join_plot.py` to join the Tensorboard output.
+
+## Citation
+
+Please cite our paper if you use this code in your own work:
+
+```
+
+```
