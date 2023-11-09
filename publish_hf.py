@@ -67,31 +67,20 @@ if __name__ == "__main__":
         model_type = model_props[0]
         model_params = model_props[1]
         model_date = model_props[2]
-        hf_name = "/" + "-".join([config["huggingface"]["prefix"], model_type, model_params])
-        hf_repo = config["huggingface"]["username"] + hf_name
-        github_link =
+        hf_name = "-".join([config["huggingface"]["prefix"], model_type, model_params])
+        hf_repo = config["huggingface"]["username"] + "/" +  hf_name
+        github_link = "https://github.com/bcwarner/audit-log-transformer"
 
         print(f"===== {hf_name} =====")
         desc = f"""
-        # {hf_name}
+        # {hf_name} 
         
-        EHR audit logs are a highly granular stream of events that capture clinician activities, and is a 
-        significant area of interest for research in characterizing clinician workflow on the electronic health record 
-        (EHR). Existing techniques to measure the complexity of workflow through EHR audit logs (audit logs) involve 
-        time- or frequency-based cross-sectional aggregations that are unable to capture the full complexity of a EHR 
-        session. We briefly evaluate the usage of transformer-based tabular language model (tabular LM) in measuring 
-        the entropy or disorderedness of action sequences within workflow and release the evaluated models publicly.
+        This repo contains the model weights for {hf_name}, a tabular language model built on the {model_type} architecture
+        for evaluating the cross-entropy of audit log sequences. This model was originally designed to calculate cross-entropies
+        but can also be used for generation.
         
-        The code to train our model is available on GitHub[The model was trained on a private dataset of ICU clinicians from Washington University in St. Louis
-        
-        # Usage 
-        
-        This model aims to be mostly compatible with the `transformers` library from HuggingFace. To use this model, you
-        
-        
-        ## Entropy Calculation
-        
-        ## Generation
+        The code to train and perform inference this model is available [here]({github_link}).
+        More details about how to use this model can be found there.
         
         Please cite our paper if you use this model in your work:
         ```
