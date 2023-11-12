@@ -69,24 +69,36 @@ if __name__ == "__main__":
         model_date = model_props[2]
         hf_name = "-".join([config["huggingface"]["prefix"], model_type, model_params])
         hf_repo = config["huggingface"]["username"] + "/" +  hf_name
-        github_link = "https://github.com/bcwarner/audit-log-transformer"
+        github_link = "https://github.com/bcwarner/audit-log-lm"
 
         print(f"===== {hf_name} =====")
-        desc = f"""
-        # {hf_name} 
-        
-        This repo contains the model weights for {hf_name}, a tabular language model built on the {model_type} architecture
-        for evaluating the cross-entropy of audit log sequences. This model was originally designed to calculate cross-entropies
-        but can also be used for generation.
-        
-        The code to train and perform inference this model is available [here]({github_link}).
-        More details about how to use this model can be found there.
-        
-        Please cite our paper if you use this model in your work:
-        ```
-        [TBA]
-        ```
-        """
+        desc = f"""---
+license: apache-2.0
+tags:
+- tabular-regression
+- ehr
+- transformer
+- medical
+model_name: audit-icu-gpt2-25_3M
+---
+# {hf_name} 
+
+This repo contains the model weights for {hf_name}, a tabular language model built on the {model_type} architecture
+for evaluating the cross-entropy of Epic EHR audit log event sequences. This model was originally designed to 
+calculate cross-entropies but can also be used for generation.
+
+The code to train and perform inference this model is available [here]({github_link}).
+More details about how to use this model can be found there.
+
+# Model Details
+
+More details can be found in the model card of our paper in Appendix B here: [TBA].
+
+Please cite our paper if you use this model in your work:
+```
+[TBA]
+```
+"""
 
         should_push = input(f"Push {model_name} to HF as {hf_name}? (y/n): ").lower() == "y"
 
@@ -104,19 +116,14 @@ if __name__ == "__main__":
         api.upload_file(
             path_or_fileobj=os.path.normpath(os.path.join(path_prefix, config["vocab_path"])),
             path_in_repo=config["vocab_path"].split(os.sep)[-1],
-            repo_id=hf_name,
+            repo_id=hf_repo,
             commit_message=f"Uploading vocab"
         )
 
-        # Add the model card to the repo
-        card_data = ModelCardData(
-            license="apache-2.0",
-            model_name=hf_name,
-            tags=["tabular-regression", "ehr", "transformer"],
-        )
-
-        card = ModelCard.from_template(
-            card_data=card_data,
-            model_descrtiption=
-
+        # Add a brief model card to the repo
+        api.upload_file(
+            path_or_fileobj=desc.encode("utf-8"),
+            path_in_repo="README.md",
+            repo_id=hf_repo,
+            commit_message=f"Uploading README"
         )
