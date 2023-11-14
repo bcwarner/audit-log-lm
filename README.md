@@ -1,4 +1,5 @@
 # Autoregressive Language Models For Estimating the Entropy of Epic EHR Audit Logs
+[![arXiv](https://img.shields.io/badge/arXiv-2311.06401-b31b1b.svg)](https://arxiv.org/abs/2311.06401) [![License](https://img.shields.io/badge/License-Apache_2.0-darkgreen.svg)](https://opensource.org/licenses/Apache-2.0)
 
 This repo contains code for training and evaluating transformer-based tabular language models for Epic EHR audit logs. 
 You can use several of our pretrained models for entropy estimation or tabular generation, or train your own model 
@@ -12,31 +13,22 @@ This project uses pre-commit hooks for `black` if you would like to contribute. 
 
 ## Pretrained Model Usage
 
-Our pretrained models can be downloaded from Hugging Face. Here's a rough example of how you can use them to get the cross-entropy loss:
+Our pretrained models are available on Hugging Face and are mostly compatible with the `transformers` library. Here's a full list of the available models:
 
-```
-from transformers import AutoTokenizer, AutoModelForCausalLM
-from model import EHRAuditGPT2
-from vocab import EHRVocab, EHRTokenizer
-from data import timestamp_space_calculation
+| Architecture | # Params | Repository Name                                                                  |
+|--------------|----------|----------------------------------------------------------------------------------|
+| GPT2         | 25.3M    | [audit-icu-gpt2-25_3M](https://huggingface.co/bcwarner/audit-icu-gpt2-25_3M)     |
+| GPT2         | 46.5M    | [audit-icu-gpt2-46_5M](https://huggingface.co/bcwarner/audit-icu-gpt2-46_5M)     |
+| GPT2         | 89.0M    | [audit-icu-gpt2-131_6M](https://huggingface.co/bcwarner/audit-icu-gpt2-89_0M)    |
+| GPT2         | 131.6M   | [audit-icu-gpt2-131_6M](https://huggingface.co/bcwarner/audit-icu-gpt2-131_6M)   |
+| RWKV         | 65.7M    | [audit-icu-rwkv-65_7M](https://huggingface.co/bcwarner/audit-icu-rwkv-65_7M)     |
+| RWKV         | 127.2M   | [audit-icu-rwkv-127_2M](https://huggingface.co/bcwarner/audit-icu-rwkv-127_2M)   |
+| LLaMA        | 58.1M    | [audit-icu-llama-58_1M](https://huggingface.co/bcwarner/audit-icu-llama-58_1M)   |
+| LLaMA        | 112.0M   | [audit-icu-llama-112_0M](https://huggingface.co/bcwarner/audit-icu-llama-112_0M) |
+| LLaMA        | 219.8M   | [audit-icu-llama-219_8M](https://huggingface.co/bcwarner/audit-icu-llama-219_8M) |
 
-vocab = EHRVocab(vocab_path="vocab.pkl")
-tk = EHRAuditTokenizer(vocab, timestamp_spaces_cal=timestamp_space_calculation([
-                    config["timestamp_bins"]["spacing"],
-                    config["timestamp_bins"]["min"],
-                    config["timestamp_bins"]["max"],
-                    config["timestamp_bins"]["bins"],
-                ]))
-model = EHRAuditGPT2.from_pretrained("bcwarner/[TBA]")
 
-df = pd.read_csv("your_audit_log_data.csv")
-
-input_ids = tk.encode(df)
-output = model(input_ids, labels=input_ids, return_dict=True)
-loss = output.loss
-```
-
-Since they're built with `transformers` you can also use these models for generative tasks in nearly the same way as any other language model. See `gen.py` for an example of how to do this.
+To use our models for cross-entropy loss, see `entropy.py` for a broad overview of the setup needed. Since they're built with `transformers` you can also use these models for generative tasks in nearly the same way as any other language model. See `gen.py` for an example of how to do this.
 
 ## Training from Scratch
 
@@ -72,5 +64,12 @@ Because our training was interrupted and restarted several times, we wrote `anal
 Please cite our paper if you use this code in your own work:
 
 ```
-
+@misc{warner2023autoregressive,
+      title={Autoregressive Language Models For Estimating the Entropy of Epic EHR Audit Logs},
+      author={Benjamin C. Warner and Thomas Kannampallil and Seunghwan Kim},
+      year={2023},
+      eprint={2311.06401},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL}
+}
 ```

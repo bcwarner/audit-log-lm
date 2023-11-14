@@ -69,7 +69,8 @@ if __name__ == "__main__":
         model_date = model_props[2]
         hf_name = "-".join([config["huggingface"]["prefix"], model_type, model_params])
         hf_repo = config["huggingface"]["username"] + "/" +  hf_name
-        github_link = "https://github.com/bcwarner/audit-log-lm"
+        github_link = config["huggingface"]["github_link"]
+        arxiv_link = config["huggingface"]["arxiv_link"]
 
         print(f"===== {hf_name} =====")
         desc = f"""---
@@ -92,11 +93,22 @@ More details about how to use this model can be found there.
 
 # Model Details
 
-More details can be found in the model card of our paper in Appendix B here: [TBA].
+More details can be found in the model card of our paper in Appendix B [here]({arxiv_link}).
 
 Please cite our paper if you use this model in your work:
 ```
-[TBA]
+""" + \
+"""
+@misc{warner2023autoregressive,
+      title={Autoregressive Language Models For Estimating the Entropy of Epic EHR Audit Logs},
+      author={Benjamin C. Warner and Thomas Kannampallil and Seunghwan Kim},
+      year={2023},
+      eprint={2311.06401},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL}
+}
+""" + \
+"""
 ```
 """
 
