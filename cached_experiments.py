@@ -90,7 +90,7 @@ class PerFieldEntropyExperiment(Experiment):
     def requirements(self):
         return {
             "logs": False,
-            "provider_aware": True,
+            "provider_aware": False,
             "provider_unaware": True,
         }
 
@@ -167,26 +167,26 @@ class PerFieldEntropyExperiment(Experiment):
         fig, ax = plt.gcf(), plt.gca()
         width = 0.1
         field_labels = ["METRIC_NAME", "PAT_ID", "ACCESS_TIME"]
-        field_labels_aware = field_labels + ["USER_ID"]
+        field_labels_aware = field_labels #+ ["USER_ID"]
         range = np.arange(len(field_labels_aware))
         max_ht = 0
         sorted_keys = sorted(self.field_entropies.keys())
         for idx, key in enumerate(sorted_keys):
             key_nice = key.replace("entropy-", "").replace("_", ".").replace(".csv", "")
             if "USER_ID" in self.field_entropies[key].keys():
-                hts = [2 ** np.mean(self.field_entropies[key][k][1]) for k in field_labels_aware]
+                hts = [np.exp(np.mean(self.field_entropies[key][k][1])) for k in field_labels_aware]
                 max_ht = max(max_ht, max(hts))
                 key_nice += " (PA)"
                 rects = ax.barh(range + (idx * width), height=width, width=hts, label=key_nice)
                 ax.bar_label(rects, fmt="%.4f")
             else:
-                hts = [2 ** np.mean(self.field_entropies[key][k][1]) for k in field_labels]
+                hts = [np.exp(np.mean(self.field_entropies[key][k][1])) for k in field_labels]
                 max_ht = max(max_ht, max(hts))
-                rects = ax.barh(range[:-1] + (idx * width), height=width, width=hts, label=key_nice)
+                rects = ax.barh(range + (idx * width), height=width, width=hts, label=key_nice)
                 ax.bar_label(rects, fmt="%.4f")
 
         ax.set_xlim(0, 1.25 * max_ht)
-        ax.set_yticks(range + (width * model_count) / 2, field_labels_aware)
+        ax.set_yticks(range + (width * model_count), field_labels_aware)
         ax.set_xlabel("Perplexity")
         ax.set_title("Perplexity by Field")
         fig.tight_layout()
@@ -291,9 +291,13 @@ if __name__ == "__main__":
         # Load the provider aware and provider unaware dataframes as desired.
         if requirements["provider_aware"]:
             provider_aware_df = {file: pd.read_csv(os.path.normpath(os.path.join(data_path, provider, file)), sep=",") for file in provider_aware_df}
+        else:
+            provider_aware_df = {}
 
         if requirements["provider_unaware"]:
             provider_unaware_df = {file: pd.read_csv(os.path.normpath(os.path.join(data_path, provider, file)), sep=",") for file in provider_unaware_df}
+        else:
+            provider_unaware_df = {}
 
         # Iterate through each of the experiments and run the map function.
         results = {}

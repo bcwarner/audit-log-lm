@@ -719,7 +719,7 @@ class PerFieldEntropyExperiment(Experiment):
         range = np.arange(len(field_labels))
         max_ht = 0
         for idx, key in enumerate(field_entropies_by_model.keys()):
-            hts = [2 ** np.mean(field_entropies_by_model[key][k]) for k in range]
+            hts = [np.exp(np.mean(field_entropies_by_model[key][k])) for k in range]
             max_ht = max(max_ht, max(hts))
             rects = ax.barh(range + (idx * width), height=width, width=hts, label=key)
             ax.bar_label(rects, fmt="%.4f")
