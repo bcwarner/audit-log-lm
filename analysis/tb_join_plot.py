@@ -36,7 +36,7 @@ if __name__ == "__main__":
     fig, ax = plt.figure(), plt.axes()
     fig.set_size_inches(7, 5)
     for model_type, points in points_by_model.items():
-        ax.plot(*points_by_model[model_type], label=model_type)
+        ax.semilogy(*points_by_model[model_type], label=model_type)
 
     ax.legend()
     ax.set_xlabel("Step")
