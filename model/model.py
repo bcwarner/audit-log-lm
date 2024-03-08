@@ -1,5 +1,5 @@
 # Contains models for the EHR audit log dataset.
-
+import os
 # Some portions Copyright 2020 IBM, licensed under Apache 2.0
 # Some portions Copyright 2023 Hugging Face, licensed under Apache 2.0.
 # Apache license header:
@@ -17,7 +17,7 @@
 
 # Dataloader for EHR audit log dataset, based on tabular transformers from Padhi et al. (2021)
 # Portions adapted from HF transformers.
-from typing import List
+from typing import List, Optional, Union
 
 import torch
 from transformers import RwkvForCausalLM, RwkvConfig, TransfoXLLMHeadModel, PretrainedConfig, LlamaForCausalLM

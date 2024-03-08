@@ -124,12 +124,72 @@ class EHRVocab:
 
 # HuggingFace-style tokenizer implementing barebones tokenization for the EHR audit log dataset.
 class EHRAuditTokenizer:
-    def __init__(self, vocab: EHRVocab, timestamp_spaces_cal: List[float] = None):
+    def __init__(self, vocab: EHRVocab, timestamp_spaces_cal: List[float] = None,
+                 user_col: str = "PAT_ID",
+                 user_max: int = 128,
+                 timestamp_col: str = "ACCESS_TIME",
+                 timestamp_sort_cols: List[str] = ["ACCESS_TIME", "ACCESS_INSTANT"],
+                 event_type_cols: List[str] = ["METRIC_NAME"],
+                 max_length: int = 1024,
+                 pat_ids_cat: bool = False):
         self.vocab = vocab
         self.timestamp_spaces_cal = timestamp_spaces_cal
+        self.user_col = user_col
+        self.user_max = user_max
+        self.timestamp_col = timestamp_col
+        self.timestamp_sort_cols = timestamp_sort_cols
+        self.event_type_cols = event_type_cols
+        self.max_length = max_length # Unused here
+        self.pat_ids_cat = pat_ids_cat
 
     def encode(self, df: pd.DataFrame):
-        raise NotImplementedError("This is not implemented yet.")
+        """
+        Encodes a an audit log DF into tokens.
+
+        :param df:
+        :return:
+        """
+        # Convert the timestamp to time deltas.
+        # If not in seconds, convert to seconds.
+        if df[self.timestamp_col].dtype == np.dtype("O"):
+            df[self.timestamp_col] = pd.to_datetime(df[self.timestamp_col])
+            df[self.timestamp_col] = df[self.timestamp_col].astype(np.int64) // 10 ** 9
+
+        if self.timestamp_sort_cols:
+            df = df.sort_values(by=list(set(self.timestamp_sort_cols).intersection(df.columns)))
+
+        # Time deltas, (ignore negative values, these will be quantized away)
+        df.loc[:, self.timestamp_col] = df.loc[:, self.timestamp_col].copy().diff()
+
+        # Set beginning of shift to 0, otherwise it's nan.
+        df.loc[0, self.timestamp_col] = 0
+
+        if self.pat_ids_cat:
+            df[self.user_col] = df[self.user_col].astype("category").cat.codes
+
+        # TODO: Ensure that the vocab responds to timestamp_bins.spacing
+        if self.timestamp_spaces_cal is not None:
+            res = df.loc[:, self.timestamp_col].apply(
+                lambda x: np.digitize(
+                    np.log(x + 1e-9), self.timestamp_spaces_cal
+                ).astype(int)
+            )
+            # Drop the old timestamp column
+            df = df.drop(columns=[self.timestamp_col])
+            # Add the new timestamp column
+            df[self.timestamp_col] = res.astype(int)
+
+        tokenized_cols = self.event_type_cols + [self.user_col, self.timestamp_col]
+        tokenized_exmaple = []
+        for _, row in df.iterrows():
+            tokenized_exmaple.extend(
+                [
+                    self.vocab.field_to_token(col, str(row[col]))
+                    for col in tokenized_cols
+                ]
+            )
+        return torch.Tensor(tokenized_exmaple)
+
 
     def decode(self,
                token_ids: List[int],
