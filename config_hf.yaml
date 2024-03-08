@@ -1,0 +1,23 @@
+path_prefix:
+  - ./
+results_path:
+log_path:
+vocab_path:
+audit_log_path:
+audit_log_file:
+audit_log_cache:
+pretrained_model_path:
+sep_min:
+  shift: 360
+  session: 5
+random_seed: 141837
+train_split: 0.7
+val_split: 0.15
+patient_id_max: 128
+metric_name_dict:
+  column: METRIC_NAME
+timestamp_bins:
+  spacing: logspace
+  min: 0
+  max: 240
+  bins: 5
