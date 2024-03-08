@@ -1,3 +1,15 @@
+---
+title: Autoregressive Language Models For Estimating the Entropy of Epic EHR Audit Logs
+emoji: 📈
+colorFrom: green
+colorTo: red
+sdk: gradio
+sdk_version: 4.20.0
+app_file: app.py
+pinned: false
+license: apache-2.0
+---
+
 # Autoregressive Language Models For Estimating the Entropy of Epic EHR Audit Logs
 [![arXiv](https://img.shields.io/badge/arXiv-2311.06401-b31b1b.svg)](https://arxiv.org/abs/2311.06401) [![License](https://img.shields.io/badge/License-Apache_2.0-darkgreen.svg)](https://opensource.org/licenses/Apache-2.0)
 
