@@ -1,6 +1,8 @@
 # Autoregressive Language Models For Estimating the Entropy of Epic EHR Audit Logs
 [![arXiv](https://img.shields.io/badge/arXiv-2311.06401-b31b1b.svg)](https://arxiv.org/abs/2311.06401) [![License](https://img.shields.io/badge/License-Apache_2.0-darkgreen.svg)](https://opensource.org/licenses/Apache-2.0)
 
+🆕 Want to see audit log generation cross-entropy calcluation in action? [Try out our `audit-icu-gpt2-25.3M` model on Hugging Face!](https://huggingface.co/spaces/bcwarner/audit-log-lm)
+
 This repo contains code for training and evaluating transformer-based tabular language models for Epic EHR audit logs. 
 You can use several of our pretrained models for entropy estimation or tabular generation, or train your own model 
 from scratch. 
