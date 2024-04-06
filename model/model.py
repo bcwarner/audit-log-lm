@@ -36,6 +36,19 @@ from model.vocab import EHRVocab
 
 # May want to try using _WeightedLoss, may have optimization benefits.
 class TabularLoss(torch.nn.Module):
+    """
+    Loss function for the tabular transformer, based on Padhi et al. (2021).
+
+    Essentially a cross-entropy loss, but with the ability to handle multiple columns.
+    The loss is computed for each column with respect to the number of vocab entries for each column.
+    It is then averaged across the columns if reduction is set to `mean` or returned as a by-column positional list if set to `none`.
+    Note that the first column is shifted by one since there is no context for the first column's first entry.
+
+    :param config: The configuration for the model.
+    :param vocab: The :class:`~model.vocab.EHRVocab` object to use.
+    :param smoothing: The amount of label smoothing to apply.
+    :param reduction: The type of reduction to apply (`mean` or `none`).
+    """
     def __init__(self,
                  config: PretrainedConfig,
                  vocab: EHRVocab,
@@ -96,6 +109,13 @@ class TabularLoss(torch.nn.Module):
         self.global_ids_len = torch.tensor(self.global_ids_len, dtype=torch.long)
 
     def forward(self, lm_logits, labels):
+        """
+        Forward pass for the loss function. Some optimizations have been made to make this faster.
+
+        :param lm_logits: The logits from the model for the sequence.
+        :param labels: The labels for the sequence.
+        :return:
+        """
         # Shift so that tokens < n predict n
         # We don't need to remove the special labels here as they are not included here.
         shift_logits = lm_logits[..., :-1, :]
@@ -155,6 +175,10 @@ class TabularLoss(torch.nn.Module):
 
 
 class EHRAuditGPT2(GPT2LMHeadModel):
+    """
+    GPT2 model for the EHR audit log dataset. This model inherits from the GPT2LMHeadModel class from the transformers library,
+    and only includes the :class:`~model.model.TabularLoss` loss function as a major difference.
+    """
     def __init__(self, config, vocab: EHRVocab):
         super().__init__(config)
         self.config = config
@@ -179,6 +203,15 @@ class EHRAuditGPT2(GPT2LMHeadModel):
         should_break=False,
         **kwargs
     ):
+        """
+        Forward pass for the GPT2 model. Full documentation can be found in the :class:`~transformers.GPT2LMHeadModel` class.
+
+        :param input_ids: The input IDs for the model.
+        :param labels: The labels for the model. Necessary for generating cross-entropy loss.
+        :param attention_mask: The attention mask for the model if desired.
+        :param kwargs:
+        :return: Returns a :class:`~transformers.modeling_outputs.CausalLMOutputWithCrossAttentions` object with the predicted logits and loss.
+        """
         transformer_outputs = self.transformer(
             input_ids=input_ids,
             attention_mask=attention_mask,

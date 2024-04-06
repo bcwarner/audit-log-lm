@@ -22,7 +22,6 @@ from model.model import EHRAuditGPT2, EHRAuditRWKV, EHRAuditLlama
 from model.modules import EHRAuditPretraining, EHRAuditDataModule
 from model.data import timestamp_space_calculation
 from model.vocab import EHRVocab, EHRAuditTokenizer, EHRAuditLogitsProcessor
-import tikzplotlib
 import numpy as np
 import evaluate
 
@@ -281,48 +280,50 @@ class ScoringExperiment(GenerationExperiment):
                     label="tab:next_action_results")
         print(out)
 
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--model", type=int, default=None, help="Model to use for pretraining."
+)
+parser.add_argument(
+    "--val",
+    action="store_true",
+    help="Run with the validation dataset instead of the test.",
+)
+parser.add_argument(
+    "--start",
+    type=int,
+    default=0,
+    help="Index of the first audit log to use for the demo.",
+)
+parser.add_argument(
+    "--count",
+    type=int,
+    default=0,
+    help="Number of audit logs to use for the demo.",
+)
+parser.add_argument(
+    "--search",
+    "-s",
+    type=str,
+    default="greedy",
+    help="Search method to use for decoding. If beam, :k is the beam size.",
+)
+parser.add_argument(
+    "-p",
+    "--plot",
+    type=str,
+    default="no", # other options: "yes", "only"
+)
+parser.add_argument(
+    "--exp",
+    type=str,
+    default="NextActionExperiment",
+    help="Experiment to run.",
+)
+
 if __name__ == "__main__":
     # Get arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--model", type=int, default=None, help="Model to use for pretraining."
-    )
-    parser.add_argument(
-        "--val",
-        action="store_true",
-        help="Run with the validation dataset instead of the test.",
-    )
-    parser.add_argument(
-        "--start",
-        type=int,
-        default=0,
-        help="Index of the first audit log to use for the demo.",
-    )
-    parser.add_argument(
-        "--count",
-        type=int,
-        default=0,
-        help="Number of audit logs to use for the demo.",
-    )
-    parser.add_argument(
-        "--search",
-        "-s",
-        type=str,
-        default="greedy",
-        help="Search method to use for decoding. If beam, :k is the beam size.",
-    )
-    parser.add_argument(
-        "-p",
-        "--plot",
-        type=str,
-        default="no", # other options: "yes", "only"
-    )
-    parser.add_argument(
-        "--exp",
-        type=str,
-        default="NextActionExperiment",
-        help="Experiment to run.",
-    )
+
     args = parser.parse_args()
     # Get the list of models from the config file
     config_path = os.path.normpath(

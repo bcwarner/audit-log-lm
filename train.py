@@ -27,81 +27,81 @@ class DebugCallback(Callback):
     def on_train_batch_start(self, trainer, pl_module, batch, batch_idx):
         pass
 
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--model", type=str, default="gpt2", help="Model to use for pretraining."
+)
+parser.add_argument(
+    "--max_epochs", type=int, default=5, help="Number of epochs to pretrain for."
+)
+parser.add_argument(
+    "--batch_size", type=int, default=2, help="Batch size to use for pretraining."
+)
+parser.add_argument(
+    "--updates",
+    type=int,
+    default=1,
+    help="Batches to wait before logging training progress.",
+)
+parser.add_argument(
+    "--profile",
+    action="store_true",
+    help="Whether to profile the training process.",
+)
+parser.add_argument(
+    "--dbg",
+    action="store_true",
+    help="Whether to run with single thread.",
+)
+parser.add_argument(
+    "--reset_cache",
+    action="store_true",
+    help="Whether to reset the cache before training.",
+)
+parser.add_argument(
+    "--subset",
+    type=float,
+    default=1.0,
+    help="Fraction of the dataset to use across train/val/test.",
+)
+parser.add_argument(
+    "--conv_ckpt",
+    type=str,
+    default=None,
+    help="Converts a Lightning checkpoint to a HuggingFace checkpoint.",
+)
+parser.add_argument(
+    "--tf32",
+    default=True,
+    action="store",
+    help="Whether to use tf32 precision on Ampere GPUs.",
+)
+parser.add_argument(
+    "--layers",
+    type=int,
+    default=None,
+    help="Number of layers to use for the model.",
+)
+parser.add_argument(
+    "--heads",
+    type=int,
+    default=6,
+    help="Number of heads to use for the model.",
+)
+parser.add_argument(
+    "--hidden_size",
+    type=int,
+    default=None,
+    help="Size for the hidden state of the model if applicable.",
+)
+parser.add_argument(
+    "--continue_from",
+    type=str,
+    default=None,
+    help="Path to a checkpoint to continue training from.",
+)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--model", type=str, default="gpt2", help="Model to use for pretraining."
-    )
-    parser.add_argument(
-        "--max_epochs", type=int, default=5, help="Number of epochs to pretrain for."
-    )
-    parser.add_argument(
-        "--batch_size", type=int, default=2, help="Batch size to use for pretraining."
-    )
-    parser.add_argument(
-        "--updates",
-        type=int,
-        default=1,
-        help="Batches to wait before logging training progress.",
-    )
-    parser.add_argument(
-        "--profile",
-        action="store_true",
-        help="Whether to profile the training process.",
-    )
-    parser.add_argument(
-        "--dbg",
-        action="store_true",
-        help="Whether to run with single thread.",
-    )
-    parser.add_argument(
-        "--reset_cache",
-        action="store_true",
-        help="Whether to reset the cache before training.",
-    )
-    parser.add_argument(
-        "--subset",
-        type=float,
-        default=1.0,
-        help="Fraction of the dataset to use across train/val/test.",
-    )
-    parser.add_argument(
-        "--conv_ckpt",
-        type=str,
-        default=None,
-        help="Converts a Lightning checkpoint to a HuggingFace checkpoint.",
-    )
-    parser.add_argument(
-        "--tf32",
-        default=True,
-        action="store",
-        help="Whether to use tf32 precision on Ampere GPUs.",
-    )
-    parser.add_argument(
-        "--layers",
-        type=int,
-        default=None,
-        help="Number of layers to use for the model.",
-    )
-    parser.add_argument(
-        "--heads",
-        type=int,
-        default=6,
-        help="Number of heads to use for the model.",
-    )
-    parser.add_argument(
-        "--hidden_size",
-        type=int,
-        default=None,
-        help="Size for the hidden state of the model if applicable.",
-    )
-    parser.add_argument(
-        "--continue_from",
-        type=str,
-        default=None,
-        help="Path to a checkpoint to continue training from.",
-    )
     args = parser.parse_args()
 
     # Is this an Ampere GPU?

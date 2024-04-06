@@ -13,6 +13,18 @@ from model.vocab import EHRVocab
 
 
 def timestamp_space_calculation(timestamp_spaces: List):
+    """
+    Calculate the timestamp space based on the given parameters, i.e. function, start value, end value, and number of bins.
+
+    First item in the list is the numpy function to use (i.e. `linspace`, `logspace`).
+    The remaining three arguments will be converted to two floats and an int.
+    If `np.linspace` is used, the values will be passed directly to `np.linspace`.
+    If `np.logspace` is used, the first value will be clipped to 0 if it is less than 1. The start and end values
+    will be converted to log10 values and then passed to `np.logspace`.
+
+    :param timestamp_spaces: List of parameters for the timestamp space calculation.
+    :return: The calculated timestamp space.
+    """
     timestamp_spaces_fn = getattr(np, timestamp_spaces[0])
     timestamp_spaces_float = [
         float(timestamp_spaces[1]),
@@ -47,6 +59,21 @@ class EHRAuditDataset(Dataset):
     Shifts are a gap in time set by hyperparameter, and have 0 entropy to start.
     Separation of shifts and sessions are delineated by the same process.
     Time deltas are calculated w.r.t. the preceding event.
+
+    :param root_dir: Directory where the log file is located for a given provider.
+    :param session_sep_min: Minimum separation in minutes between sessions.
+    :param shift_sep_min: Minimum separation in minutes between shifts.
+    :param user_col: Column name for the user ID.
+    :param user_max: Maximum number of users for tokenization.
+    :param timestamp_col: Column name for the timestamp.
+    :param timestamp_sort_cols: Columns to sort by for timestamps, ordered most to least important.
+    :param event_type_cols: Columns that represent the event type in the audit logs.
+    :param log_name: Name of the log file.
+    :param vocab: :class:`~model.vocab.EHRVocab` object to use for tokenization.
+    :param timestamp_spaces: List of parameters for the timestamp space calculation.
+    :param should_tokenize: Whether to tokenize the data immediately upon loading. Should be separated shifts if not.
+    :param cache: Name of the cache directory to save tokenized sequences.
+    :param max_length: Maximum length of the tokenized sequences. Should generally be same as model context size.
     """
 
     def __init__(
@@ -314,6 +341,11 @@ class EHRAuditDataset(Dataset):
             )
 
     def __getitem__(self, item):
+        """
+        Get an EHR audit log sequence from the dataset.
+        :param item: Index of the sequence.
+        :return: Return the item at the given index.
+        """
         if self.seqs == [] and os.path.exists(
             os.path.normpath(os.path.join(self.root_dir, self.cache))
         ):
@@ -321,6 +353,10 @@ class EHRAuditDataset(Dataset):
         return self.seqs[item]
 
     def __len__(self):
+        """
+        Get the length of the dataset.
+        :return: Length of the dataset.
+        """
         if self.len is None and os.path.exists(
             os.path.normpath(os.path.join(self.root_dir, self.cache))
         ):

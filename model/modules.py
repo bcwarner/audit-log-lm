@@ -15,6 +15,13 @@ from model.vocab import EHRVocab
 
 
 def collate_fn(batch, n_positions=1024):
+    """
+    Collate function for loading batches from the dataloader for the model.
+
+    :param batch: The batch of data to be collated.
+    :param n_positions: The context length of the model.
+    :return: Collated input_ids and labels.
+    """
     input_ids_col = []
     labels_col = []
     for input_ids in batch:
@@ -44,6 +51,11 @@ def worker_fn(worker_id, seed=0):
 
 
 class EHRAuditPretraining(pl.LightningModule):
+    """
+    PyTorch Lightning module for the pretraining task on the EHR audit data.
+
+    :param model: The model to be trained.
+    """
     def __init__(self, model):
         super().__init__()
         self.model = model
@@ -51,6 +63,13 @@ class EHRAuditPretraining(pl.LightningModule):
         self.step = 0
 
     def forward(self, input_ids, labels, should_break=False):
+        """
+        Forward pass for the model.
+        :param input_ids:
+        :param labels:
+        :param should_break:
+        :return:
+        """
         return self.model(input_ids, labels=labels, should_break=should_break)
 
     def training_step(self, batch, batch_idx):
@@ -96,6 +115,10 @@ class EHRAuditPretraining(pl.LightningModule):
         return self.model(batch)
 
     def configure_optimizers(self):
+        """
+        Configure the optimizer for the model. Uses SophiaG.
+        :return:
+        """
         return SophiaG(
             self.model.parameters(),
             lr=1e-3,

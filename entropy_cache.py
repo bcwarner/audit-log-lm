@@ -22,7 +22,6 @@ from model.model import EHRAuditGPT2, EHRAuditRWKV, EHRAuditLlama
 from model.modules import EHRAuditPretraining, EHRAuditDataModule, collate_fn, worker_fn
 from model.data import timestamp_space_calculation
 from model.vocab import EHRVocab, EHRAuditTokenizer
-import tikzplotlib
 import numpy as np
 
 # Fyi: this is a quick-and-dirty way of id'ing the columns, will need to be changed if the tabularization changes
@@ -31,32 +30,34 @@ PAT_ID_COL = 1
 ACCESS_TIME_COL = 2
 
 
+# Get arguments
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--model", type=int, default=None, help="Model to use for pretraining."
+)
+parser.add_argument(
+    "--val",
+    action="store_true",
+    help="Run with the validation dataset instead of the test.",
+)
+parser.add_argument(
+    "--reset_cache",
+    action="store_true",
+    help="Whether to reset the cache before analysis.",
+)
+parser.add_argument(
+    "--debug",
+    action="store_true",
+    help="Whether to run with single thread.",
+)
+parser.add_argument(
+    "--verify",
+    action="store_true",
+    help="Whether to verify the entropy values line up with the dataset.",
+)
+
 if __name__ == "__main__":
-    # Get arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--model", type=int, default=None, help="Model to use for pretraining."
-    )
-    parser.add_argument(
-        "--val",
-        action="store_true",
-        help="Run with the validation dataset instead of the test.",
-    )
-    parser.add_argument(
-        "--reset_cache",
-        action="store_true",
-        help="Whether to reset the cache before analysis.",
-    )
-    parser.add_argument(
-        "--debug",
-        action="store_true",
-        help="Whether to run with single thread.",
-    )
-    parser.add_argument(
-        "--verify",
-        action="store_true",
-        help="Whether to verify the entropy values line up with the dataset.",
-    )
+
     # To add if needed: delete cached entropy values
     args = parser.parse_args()
     # Get the list of models from the config file

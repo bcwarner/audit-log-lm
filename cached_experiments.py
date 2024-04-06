@@ -203,13 +203,14 @@ class PerFieldEntropyExperiment(Experiment):
         )
 
 
-if __name__ == "__main__":
-    p = argparse.ArgumentParser()
-    p.add_argument("--exp", type=str, default="all", help="The experiments to run.")
-    p.add_argument("--plot", type=str, default="", help="The experiments to plot.")
-    p.add_argument("--debug", action="store_true", help="Whether to run in debug mode.")
-    args = p.parse_args()
+p = argparse.ArgumentParser()
+p.add_argument("--exp", type=str, default="all", help="The experiments to run.")
+p.add_argument("--plot", type=str, default="", help="The experiments to plot.")
+p.add_argument("--debug", action="store_true", help="Whether to run in debug mode.")
 
+
+if __name__ == "__main__":
+    args = p.parse_args()
     # Load the config.
 
     # Get the list of models from the config file
