@@ -19,7 +19,6 @@ from model.model import EHRAuditGPT2, EHRAuditRWKV, EHRAuditLlama
 from model.modules import EHRAuditPretraining, EHRAuditDataModule
 from model.data import timestamp_space_calculation
 from model.vocab import EHRVocab, EHRAuditTokenizer
-import tikzplotlib
 import numpy as np
 
 # Fyi: this is a quick-and-dirty way of id'ing the columns, will need to be changed if the tabularization changes
@@ -641,15 +640,7 @@ class TimeEntropyExperiment(Experiment):
                 )
             )
         )
-        tikzplotlib.save(
-            os.path.normpath(
-                os.path.join(
-                    self.path_prefix,
-                    self.config["results_path"],
-                    "entropy_by_time_delta.tex",
-                )
-            )
-        )
+
 
 class PerFieldEntropyExperiment(Experiment):
     # Just records the entropy of each field as well as overall.
@@ -1164,15 +1155,6 @@ if __name__ == "__main__":
             )
         )
     )
-    tikzplotlib.save(
-        os.path.normpath(
-            os.path.join(
-                path_prefix,
-                config["results_path"],
-                f"entropy_{len(ce_values)}_{args.exp_suffix}.tex",
-            )
-        )
-    )
 
     # Plot as perplexity
     print(f"Plotting perplexity values for {len(ce_values)} samples...")
@@ -1190,12 +1172,4 @@ if __name__ == "__main__":
             )
         )
     )
-    tikzplotlib.save(
-        os.path.normpath(
-            os.path.join(
-                path_prefix,
-                config["results_path"],
-                f"perplexity_{len(ce_values)}_{args.exp_suffix}.tex",
-            )
-        )
-    )
+

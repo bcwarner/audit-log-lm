@@ -4,7 +4,6 @@ import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import tikzplotlib
 from tabulate import tabulate
 from tqdm import tqdm
 from collections import defaultdict
@@ -148,9 +147,6 @@ if __name__ == "__main__":
         plt.ylabel(ylabel)
         plt.show()
         plt.savefig(os.path.normpath(os.path.join(results_path, filename + ".png")))
-        tikzplotlib.save(
-            os.path.normpath(os.path.join(results_path, filename + ".tex"))
-        )
 
     # Plot the distribution of time deltas.
     histogram(
