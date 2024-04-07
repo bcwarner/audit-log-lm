@@ -48,15 +48,15 @@ In terms of layers of abstraction, the model training is as follows:
   abstracted away. It's setup to work with any model we want. The optimizer is set to SophiaG, but we could use anything we want.
 * The language model: One of the models in :class:`~model.model`, which inherits from one of the language model architectures in `transformers`.
   This is where the actual model is defined. The model is responsible for taking in the input and returning predicted logits.
-    * The key training component actually happens :class:`~model.model.TabularLoss`, which provides the loss function for the model.
+  * The key training component actually happens :class:`~model.model.TabularLoss`, which provides the loss function for the model.
 * The tokenizer: The tokenizer in :mod:`~model.vocab` is responsible for a) building a vocab and b) tokenizing/detokenizing the data.
   b) is handled by the :class:`~EHRAuditDataset`.
 * The PyTorch Lightning ``Trainer``: This is the PyTorch Lightning object that is responsible for training the model. It glues together
   the :class:`EHRAuditDataModule` and the :class:`EHRAuditPretraining` modules (the latter of which glues together the model and the tokenizer). The trainer has a couple key settings:
-    * A profiler if you want to profile the model's runtime performance.
-    * A Tensorboard logger that logs the model's performance every run.
-    * Checkpointing that saves every epoch.
-    * Some small details, including gradient batch accumulation, maximum epochs, etc.
+  * A profiler if you want to profile the model's runtime performance.
+  * A Tensorboard logger that logs the model's performance every run.
+  * Checkpointing that saves every epoch.
+  * Some small details, including gradient batch accumulation, maximum epochs, etc.
 
 After training, we don't necessarily need all of these. For inference on a single, ad-hoc example, we only need the model, the vocab/tokenizer.
 For inference on a batch of examples from a specific provider, we only need a `~model.data.EHRAuditDataset` and the model, and tokenizer if you're decoding.
@@ -80,8 +80,8 @@ The major problems are as follows:
     config_path = os.path.normpath(
             os.path.join(os.path.dirname(__file__), "config.yaml")
         )
-        with open(config_path, "r") as f:
-            config = yaml.safe_load(f)
+    with open(config_path, "r") as f:
+        config = yaml.safe_load(f)
 
 The correct way to do this would be with a config system like Hydra, which allows for a hierarchical configuration system
 and can be adjusted to allow for private, localized, and permutable configuration options. I don't know if Hydra is the best,
