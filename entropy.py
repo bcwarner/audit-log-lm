@@ -854,39 +854,41 @@ class MaxMinAverageSessionExperiment(Experiment):
                                         float_format="%.3f",))
 
 
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--model", type=int, default=None, help="Model to use for pretraining."
+)
+parser.add_argument(
+    "--max_samples", type=int, default=None, help="Maximum batches to use."
+)
+parser.add_argument(
+    "--exp_suffix",
+    type=str,
+    default="",
+    help="Suffix to add to the output file name.",
+)
+parser.add_argument(
+    "--exp",
+    type=str,
+    default="Experiment",
+    help="Experiment to run.",
+)
+parser.add_argument(
+    "--val",
+    action="store_true",
+    help="Run with the validation dataset instead of the test.",
+)
+parser.add_argument(
+    "-p",
+    "--plot",
+    action="store",
+    default="yes", # other options: none, only
+    help="Plot the results.",
+)
+
 if __name__ == "__main__":
     # Get arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--model", type=int, default=None, help="Model to use for pretraining."
-    )
-    parser.add_argument(
-        "--max_samples", type=int, default=None, help="Maximum batches to use."
-    )
-    parser.add_argument(
-        "--exp_suffix",
-        type=str,
-        default="",
-        help="Suffix to add to the output file name.",
-    )
-    parser.add_argument(
-        "--exp",
-        type=str,
-        default="Experiment",
-        help="Experiment to run.",
-    )
-    parser.add_argument(
-        "--val",
-        action="store_true",
-        help="Run with the validation dataset instead of the test.",
-    )
-    parser.add_argument(
-        "-p",
-        "--plot",
-        action="store",
-        default="yes", # other options: none, only
-        help="Plot the results.",
-    )
+
     args = parser.parse_args()
     # Get the list of models from the config file
     config_path = os.path.normpath(

@@ -137,6 +137,14 @@ class EHRAuditDataModule(pl.LightningDataModule):
         reset_cache=False,
         debug=False,
     ):
+        """
+        :param yaml_config_path: Configuration file for the data module.
+        :param vocab: Vocabulary for tokenization.
+        :param batch_size: Size of batches for the dataloader/collation.
+        :param n_positions: Context length of the model.
+        :param reset_cache: If the data model has changed, the cached sequences will need to be reset and this flag set.
+        :param debug: Whether to run in debug mode (single-threaded).
+        """
         super().__init__()
         with open(yaml_config_path) as f:
             self.config = yaml.safe_load(f)
@@ -147,7 +155,13 @@ class EHRAuditDataModule(pl.LightningDataModule):
         self.debug = debug
 
     def prepare_data(self):
-        # Itereate through each prefix and determine which one exists, then choose that one.
+        """
+        Prepares the data for the model. Loads the datasets from the audit logs specifically to tokenize. Will load
+        the datasets in parallel and cache them (unless debug mode is enabled).
+
+        If self.reset_cache is set, the cached sequences will be reset. This is useful if the data has changed.
+        :return:
+        """
         path_prefix = ""
         for prefix in self.config["path_prefix"]:
             if os.path.exists(prefix):
@@ -215,7 +229,11 @@ class EHRAuditDataModule(pl.LightningDataModule):
         )
 
     def setup(self, stage=None):
-        # Load the datasets
+        """
+        Sets up the data for the model and loads them fully into memory. Splits the datasets into training, validation, and testing sets.
+        :param stage:
+        :return:
+        """
         path_prefix = ""
         for prefix in self.config["path_prefix"]:
             if os.path.exists(prefix):

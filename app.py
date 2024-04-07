@@ -21,33 +21,7 @@ import yaml
 
 from model.data import timestamp_space_calculation
 
-# Load the vocab
-vocab_file = huggingface_hub.hf_hub_download("bcwarner/audit-icu-gpt2-25_3M", "vocab.pkl")
-vocab = v.EHRVocab(vocab_path=vocab_file)
 
-# Pull up our config and load the model
-config = yaml.safe_load(open("config_hf.yaml"))
-al_model = mod.EHRAuditGPT2.from_pretrained("bcwarner/audit-icu-gpt2-25_3M", vocab)
-al_model.loss.reduction = "none"
-al_model.generation_config.pad_token_id = al_model.generation_config.eos_token_id
-
-# Load the tokenizer
-timestamp_spaces = timestamp_space_calculation(list(config["timestamp_bins"].values()))
-tk = v.EHRAuditTokenizer(vocab, timestamp_spaces_cal=timestamp_spaces)
-
-device = "cuda" if torch.cuda.is_available() else "cpu"
-
-options = ["Cross-Entropy", "Next Action w/ Sample Search"]
-start_date = datetime.now()
-mn_vals = list(vocab.field_tokens["METRIC_NAME"].keys())
-mn_vals_set = set(sorted(mn_vals))
-pat_ct = config["patient_id_max"]
-
-logits_processor = LogitsProcessorList(
-                    [
-                        v.EHRAuditLogitsProcessor(vocab=vocab),
-                    ]
-                )
 
 @torch.no_grad()
 def perform_action(input_df, option, prediction_rows):
@@ -127,28 +101,56 @@ def gen_random_df(row_c):
         rows.append(next_row)
     return pd.DataFrame(rows)
 
-demo = gr.Interface(
-    perform_action,
-    [
-        gr.Dataframe(
-            headers=["METRIC_NAME", "PAT_ID", "ACCESS_TIME"],
-            datatype=["str", "number", "date"],
-            row_count=5,
-            value=gen_random_df(5),
-            col_count=(3, "fixed"),
-            interactive=True,
-            label="Audit Log Input"
-        ),
-        gr.Dropdown(options, value=0, label="Action"),
-        gr.Number(precision=0, label="Rows to Predict"),
-    ],
-    gr.Dataframe(
-        label="Output"
-    ),
-    description="Demo of [`bcwarner/audit-icu-gpt2-25_3M`](https://huggingface.co/bcwarner/audit-icu-gpt2-25_3M) for Epic EHR audit log generation/cross-entropy performance." + \
-    " Notice: This demo is purely for research purposes only and does not constitute medical advice."
-)
-
 
 if __name__ == "__main__":
+    # Load the vocab
+    vocab_file = huggingface_hub.hf_hub_download("bcwarner/audit-icu-gpt2-25_3M", "vocab.pkl")
+    vocab = v.EHRVocab(vocab_path=vocab_file)
+
+    # Pull up our config and load the model
+    config = yaml.safe_load(open("config_hf.yaml"))
+    al_model = mod.EHRAuditGPT2.from_pretrained("bcwarner/audit-icu-gpt2-25_3M", vocab)
+    al_model.loss.reduction = "none"
+    al_model.generation_config.pad_token_id = al_model.generation_config.eos_token_id
+
+    # Load the tokenizer
+    timestamp_spaces = timestamp_space_calculation(list(config["timestamp_bins"].values()))
+    tk = v.EHRAuditTokenizer(vocab, timestamp_spaces_cal=timestamp_spaces)
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    options = ["Cross-Entropy", "Next Action w/ Sample Search"]
+    start_date = datetime.now()
+    mn_vals = list(vocab.field_tokens["METRIC_NAME"].keys())
+    mn_vals_set = set(sorted(mn_vals))
+    pat_ct = config["patient_id_max"]
+
+    logits_processor = LogitsProcessorList(
+        [
+            v.EHRAuditLogitsProcessor(vocab=vocab),
+        ]
+    )
+
+    demo = gr.Interface(
+        perform_action,
+        [
+            gr.Dataframe(
+                headers=["METRIC_NAME", "PAT_ID", "ACCESS_TIME"],
+                datatype=["str", "number", "date"],
+                row_count=5,
+                value=gen_random_df(5),
+                col_count=(3, "fixed"),
+                interactive=True,
+                label="Audit Log Input"
+            ),
+            gr.Dropdown(options, value=0, label="Action"),
+            gr.Number(precision=0, label="Rows to Predict"),
+        ],
+        gr.Dataframe(
+            label="Output"
+        ),
+        description="Demo of [`bcwarner/audit-icu-gpt2-25_3M`](https://huggingface.co/bcwarner/audit-icu-gpt2-25_3M) for Epic EHR audit log generation/cross-entropy performance." + \
+                    " Notice: This demo is purely for research purposes only and does not constitute medical advice."
+    )
+
     demo.launch()

@@ -35,6 +35,12 @@ class EHRVocab:
         vocab_path=None,
     ):
         """
+        Vocabulary for the EHR audit log dataset, styled after Padhi et al. (2021).
+
+        There are a few components to the vocab:
+        * Field tokens: Mapping from field, to value, to token.
+        * Field IDs: Mapping from field to list of token IDs.
+        * Global tokens: Mapping from all token IDs to field, value, and field ID.
 
         :param categorical_column_opts: Mapping of categorical column names to the list of possible values.
         :param max_len: Maximum length of the input sequence.
@@ -82,24 +88,48 @@ class EHRVocab:
                     new_token(category, t)
 
     def save(self):
+        """
+        Saves the vocab to the vocab path.
+
+        :param vocab_path: Path to save the vocab.
+        """
         with open(self.vocab_path, "wb") as f:
             res_dict = self.__dict__.copy()
             del res_dict["vocab_path"]
             pickle.dump(res_dict, f)
 
     def field_to_token(self, field, value):
+        """
+        Converts a field-value pair to a token.
+
+        :param field: The field name.
+        :param value:
+        :return:
+        """
+
         if value not in self.field_tokens[field]:
             # There's a few of these, TODO: Analyze these.
             return self.field_tokens["special"][self.unk_token]
         return self.field_tokens[field][value]
 
     def global_to_token(self, global_id):
+        """
+        Converts a global ID to a field, value, and field ID.
+
+        :param global_id: Global ID to convert.
+        :return: Returns a tuple of field, value, and field ID.
+        """
         if global_id not in self.global_tokens:
             return 0
         return self.global_tokens[global_id] if global_id != 0 else (0, "special", 0)
 
     def globals_to_locals(self, global_ids: torch.Tensor):
-        # Iterate over the elements of the tensor and convert them to local IDs.
+        """
+        Slow version of globals_to_locals_torch.
+
+        :param global_ids: Global IDs to convert.
+        :return: Local IDs.
+        """
         local_ids = torch.zeros_like(global_ids)
         global_ids_cpu = global_ids.cpu().numpy()
         for i in range(global_ids.shape[0]):  # Batch
@@ -109,21 +139,50 @@ class EHRVocab:
         return local_ids.to(global_ids.device)
 
     def globals_to_locals_torch(self, global_ids: torch.Tensor, field_start: int):
-        # Idea: Each sub-vocab is always fixed in location, so the local ids are = global ids - offset.
-        # If this assumption is not true, then it will break.
+        """
+        Converts global IDs to local IDs, clamping below only.
+
+        Basic idea is each sub-vocab is always fixed in location, so the local ids are = global ids - offset.
+        If this assumption is not true, then it will break.
+        :param global_ids: Global IDs to convert.
+        :param field_start: Field start.
+        :return: Local IDs.
+        """
         return torch.clamp(torch.sub(global_ids, field_start - 1), min=0)
 
     def field_names(self, include_special=False):
+        """
+        Returns the field names.
+        :param include_special: Whether to include special tokens.
+        :return:
+        """
         l = list(self.field_tokens.keys())
         if not include_special:
             l.remove("special")
         return l
 
     def __len__(self):
+        """
+        Returns the length of the vocab.
+        :return:
+        """
         return len(self.global_tokens)
 
 # HuggingFace-style tokenizer implementing barebones tokenization for the EHR audit log dataset.
 class EHRAuditTokenizer:
+    """
+    Tokenizer for an EHR audit log sequence using a vocab.
+
+    :param vocab: ``~model.vocab.EHRVocab`` instance to use for tokenization.
+    :param timestamp_spaces_cal: List of timestamp spaces to use for quantization.
+    :param user_col: Name of the user ID column.
+    :param user_max: Maximum user IDs.
+    :param timestamp_col: Name of the timestamp column.
+    :param timestamp_sort_cols: Columns to sort by before tokenization.
+    :param event_type_cols: Columns that describe the event type.
+    :param max_length: Maximum length of the input sequence (i.e. the context length of the model).
+    :param pat_ids_cat: Whether patient IDs should be treated categorically/in the order they appear.
+    """
     def __init__(self, vocab: EHRVocab, timestamp_spaces_cal: List[float] = None,
                  user_col: str = "PAT_ID",
                  user_max: int = 128,
@@ -144,7 +203,7 @@ class EHRAuditTokenizer:
 
     def encode(self, df: pd.DataFrame):
         """
-        Encodes a an audit log DF into tokens.
+        Encodes an audit log DataFrame into a tokenized sequence.
 
         :param df:
         :return:
@@ -234,15 +293,28 @@ class EHRAuditTokenizer:
         return [self.decode(b, output_type=output_type) for b in token_ids]
 
 class EHRAuditLogitsProcessor(LogitsProcessor):
+    """
+    Logits processor for the EHR audit log dataset. While iterating through the logits, this processor will
+    set logits outside the current field to -inf (i.e. not a valid token). This assumes the fields are aligned.
+    """
     def __init__(self, vocab: EHRVocab):
+        """
+        :param vocab: ``~model.vocab.EHRVocab`` instance to use for processing.
+        """
         self.vocab = vocab
         self.fields = self.vocab.field_names(include_special=False)
         self.fn = len(self.vocab.field_names(include_special=False))
 
 
     def __call__(self, input_ids: torch.Tensor, logits: torch.Tensor):
-        # For each equivalent row in the vocab, we want to -inf out the logits that are outside the field range.
-        # Assumes that each field in the batch is aligned.
+        """
+        For each equivalent row in the vocab, we want to -inf out the logits that are outside the field range.
+        Assumes that each field in the batch is aligned.
+
+        :param input_ids: The input IDs to use for alignment.
+        :param logits: The logits to process.
+        :return:
+        """
         f = self.vocab.global_tokens[input_ids[:, -1].item()][0]
         next_field = (self.fields.index(f) + 1) % self.fn
         next_field_start = self.vocab.field_ids[self.fields[next_field]][0]

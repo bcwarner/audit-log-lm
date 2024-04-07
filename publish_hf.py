@@ -10,15 +10,15 @@ from model.model import EHRAuditGPT2, EHRAuditRWKV, EHRAuditLlama
 from model.vocab import EHRVocab
 import huggingface_hub
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--debug",
-        action="store_true",
-        help="Dry run, don't actually push to HF",
-    )
-    args = parser.parse_args()
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--debug",
+    action="store_true",
+    help="Dry run, don't actually push to HF",
+)
 
+if __name__ == "__main__":
+    args = parser.parse_args()
     # Load configuration and vocab
     config_path = os.path.normpath(
         os.path.join(os.path.dirname(__file__), "config.yaml")

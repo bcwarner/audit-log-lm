@@ -13,3 +13,4 @@ torch
 tqdm
 transformers
 wandb
+gradio
