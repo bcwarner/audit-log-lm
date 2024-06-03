@@ -3,6 +3,15 @@ Overview
 .. toctree::
     howto
 
+Library Documentation
+--------------------------
+
+.. toctree::
+    main/model/vocab
+    main/model/data
+    main/model/model
+    main/model/modules
+
 Script Documentation
 --------------------------
 
@@ -12,16 +21,6 @@ Script Documentation
     main/cached_experiments
     main/gen
     main/entropy
-
-
-Library Documentation
---------------------------
-
-.. toctree::
-    main/model/data
-    main/model/model
-    main/model/modules
-    main/model/vocab
 
 Hugging Face Documentation
 --------------------------
