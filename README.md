@@ -1,11 +1,13 @@
 # Autoregressive Language Models For Estimating the Entropy of Epic EHR Audit Logs
-[![arXiv](https://img.shields.io/badge/arXiv-2311.06401-b31b1b.svg)](https://arxiv.org/abs/2311.06401) [![License](https://img.shields.io/badge/License-Apache_2.0-darkgreen.svg)](https://opensource.org/licenses/Apache-2.0)
+[![arXiv](https://img.shields.io/badge/arXiv-2311.06401-b31b1b.svg)](https://arxiv.org/abs/2311.06401) [![License](https://img.shields.io/badge/License-AGPLv3-darkgreen.svg)](https://opensource.org/licenses/agpl-v3)
 
-🆕 Want to see audit log generation and cross-entropy calculation in action? [Try out our `audit-icu-gpt2-25.3M` model on Hugging Face!](https://huggingface.co/spaces/bcwarner/audit-log-lm)
+🆕 Check out our [JAMIA paper](https://academic.oup.com/jamia/advance-article-abstract/doi/10.1093/jamia/ocae171/7713267) which analyzes cross-entropy as an audit log metric in depth. [Updated code here](https://github.com/bcwarner/ehr-log-transformer).
 
 This repo contains code for training and evaluating transformer-based tabular language models for Epic EHR audit logs. 
 You can use several of our pretrained models for entropy estimation or tabular generation, or train your own model 
 from scratch. 
+
+Want to see audit log generation and cross-entropy calculation in action? [Try out our `audit-icu-gpt2-25.3M` model on Hugging Face!](https://huggingface.co/spaces/bcwarner/audit-log-lm)
 
 ## Installation
 Use `pip install -r requirements.txt` to install the required packages. If updated ` pipreqs . --savepath
