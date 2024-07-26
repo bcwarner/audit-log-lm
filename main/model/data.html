@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>&lt;no title&gt; &#8212; audit-log-lm  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=12dfc556" />
+    <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="&lt;no title&gt;" href="model.html" />
+    <link rel="prev" title="&lt;no title&gt;" href="vocab.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <hr class="docutils" />
+<dl class="py class" id="module-model.data">
+<dt class="sig sig-object py" id="model.data.EHRAuditDataset">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">model.data.</span></span><span class="sig-name descname"><span class="pre">EHRAuditDataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">root_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session_sep_min</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shift_sep_min</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">300</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">user_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'PAT_ID'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">user_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">128</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ACCESS_TIME'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp_sort_cols</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['ACCESS_TIME',</span> <span class="pre">'ACCESS_INSTANT']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">event_type_cols</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['METRIC_NAME']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vocab</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp_spaces</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">should_tokenize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_length</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1024</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#model.data.EHRAuditDataset" title="Link to this definition">¶</a></dt>
+<dd><p>Dataset for Epic EHR audit log data.</p>
+<p>Assumes that the data is associated with a single physician.
+Users IDs are transformed to the # in which they are encountered for a given shift.
+Shifts are a gap in time set by hyperparameter, and have 0 entropy to start.
+Separation of shifts and sessions are delineated by the same process.
+Time deltas are calculated w.r.t. the preceding event.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>root_dir</strong> (<em>str</em>) – Directory where the log file is located for a given provider.</p></li>
+<li><p><strong>session_sep_min</strong> (<em>int</em>) – Minimum separation in minutes between sessions.</p></li>
+<li><p><strong>shift_sep_min</strong> (<em>int</em>) – Minimum separation in minutes between shifts.</p></li>
+<li><p><strong>user_col</strong> (<em>str</em>) – Column name for the user ID.</p></li>
+<li><p><strong>user_max</strong> (<em>int</em>) – Maximum number of users for tokenization.</p></li>
+<li><p><strong>timestamp_col</strong> (<em>str</em>) – Column name for the timestamp.</p></li>
+<li><p><strong>timestamp_sort_cols</strong> (<em>List</em><em>[</em><em>str</em><em>]</em>) – Columns to sort by for timestamps, ordered most to least important.</p></li>
+<li><p><strong>event_type_cols</strong> (<em>List</em><em>[</em><em>str</em><em>]</em>) – Columns that represent the event type in the audit logs.</p></li>
+<li><p><strong>log_name</strong> (<em>str</em>) – Name of the log file.</p></li>
+<li><p><strong>vocab</strong> (<a class="reference internal" href="vocab.html#model.vocab.EHRVocab" title="model.vocab.EHRVocab"><em>EHRVocab</em></a>) – <a class="reference internal" href="vocab.html#model.vocab.EHRVocab" title="model.vocab.EHRVocab"><code class="xref py py-class docutils literal notranslate"><span class="pre">EHRVocab</span></code></a> object to use for tokenization.</p></li>
+<li><p><strong>timestamp_spaces</strong> (<em>List</em><em>[</em><em>float</em><em>]</em>) – List of parameters for the timestamp space calculation.</p></li>
+<li><p><strong>should_tokenize</strong> (<em>bool</em>) – Whether to tokenize the data immediately upon loading. Should be separated shifts if not.</p></li>
+<li><p><strong>cache</strong> (<em>str</em>) – Name of the cache directory to save tokenized sequences.</p></li>
+<li><p><strong>max_length</strong> (<em>int</em>) – Maximum length of the tokenized sequences. Should generally be same as model context size.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="model.data.EHRAuditDataset.load">
+<span class="sig-name descname"><span class="pre">load</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#model.data.EHRAuditDataset.load" title="Link to this definition">¶</a></dt>
+<dd><p>Load the dataset from either a log file or a cache.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="model.data.EHRAuditDataset.load_from_cache">
+<span class="sig-name descname"><span class="pre">load_from_cache</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">length</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seqs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#model.data.EHRAuditDataset.load_from_cache" title="Link to this definition">¶</a></dt>
+<dd><p>Load the dataset from a cached file.
+Deliberately only load parts as needed.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="model.data.EHRAuditDataset.load_from_log">
+<span class="sig-name descname"><span class="pre">load_from_log</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#model.data.EHRAuditDataset.load_from_log" title="Link to this definition">¶</a></dt>
+<dd><p>Load the dataset from a log file.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="model.data.timestamp_space_calculation">
+<span class="sig-prename descclassname"><span class="pre">model.data.</span></span><span class="sig-name descname"><span class="pre">timestamp_space_calculation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">timestamp_spaces</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#model.data.timestamp_space_calculation" title="Link to this definition">¶</a></dt>
+<dd><p>Calculate the timestamp space based on the given parameters, i.e. function, start value, end value, and number of bins.</p>
+<p>First item in the list is the numpy function to use (i.e. <cite>linspace</cite>, <cite>logspace</cite>).
+The remaining three arguments will be converted to two floats and an int.
+If <cite>np.linspace</cite> is used, the values will be passed directly to <cite>np.linspace</cite>.
+If <cite>np.logspace</cite> is used, the first value will be clipped to 0 if it is less than 1. The start and end values
+will be converted to log10 values and then passed to <cite>np.logspace</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>timestamp_spaces</strong> (<em>List</em>) – List of parameters for the timestamp space calculation.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The calculated timestamp space.</p>
+</dd>
+</dl>
+</dd></dl>
+
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">audit-log-lm</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../howto.html">Training from Scratch</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../howto.html#programming-style-considerations">Programming Style Considerations</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="vocab.html"><code class="docutils literal notranslate"><span class="pre">EHRAuditLogitsProcessor</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="vocab.html#model.vocab.EHRAuditTokenizer"><code class="docutils literal notranslate"><span class="pre">EHRAuditTokenizer</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="vocab.html#model.vocab.EHRVocab"><code class="docutils literal notranslate"><span class="pre">EHRVocab</span></code></a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">EHRAuditDataset</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#model.data.EHRAuditDataset.load"><code class="docutils literal notranslate"><span class="pre">EHRAuditDataset.load()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#model.data.EHRAuditDataset.load_from_cache"><code class="docutils literal notranslate"><span class="pre">EHRAuditDataset.load_from_cache()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#model.data.EHRAuditDataset.load_from_log"><code class="docutils literal notranslate"><span class="pre">EHRAuditDataset.load_from_log()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="#model.data.timestamp_space_calculation"><code class="docutils literal notranslate"><span class="pre">timestamp_space_calculation()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="model.html"><code class="docutils literal notranslate"><span class="pre">EHRAuditGPT2</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="model.html#model.model.EHRAuditLlama"><code class="docutils literal notranslate"><span class="pre">EHRAuditLlama</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="model.html#model.model.EHRAuditRWKV"><code class="docutils literal notranslate"><span class="pre">EHRAuditRWKV</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="model.html#model.model.EHRAuditTransformerXL"><code class="docutils literal notranslate"><span class="pre">EHRAuditTransformerXL</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="model.html#model.model.TabularLoss"><code class="docutils literal notranslate"><span class="pre">TabularLoss</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html"><code class="docutils literal notranslate"><span class="pre">EHRAuditDataModule</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html#model.modules.EHRAuditPretraining"><code class="docutils literal notranslate"><span class="pre">EHRAuditPretraining</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html#model.modules.collate_fn"><code class="docutils literal notranslate"><span class="pre">collate_fn()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html#model.modules.worker_fn"><code class="docutils literal notranslate"><span class="pre">worker_fn()</span></code></a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../train.html">train.py</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../entropy_cache.html">entropy_cache.py</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cached_experiments.html">cached_experiments.py</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cached_experiments.html#cached_experiments.Experiment"><code class="docutils literal notranslate"><span class="pre">Experiment</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cached_experiments.html#cached_experiments.PerFieldEntropyExperiment"><code class="docutils literal notranslate"><span class="pre">PerFieldEntropyExperiment</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../gen.html">gen.py</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../gen.html#gen.GenerationExperiment"><code class="docutils literal notranslate"><span class="pre">GenerationExperiment</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../gen.html#gen.NextActionExperiment"><code class="docutils literal notranslate"><span class="pre">NextActionExperiment</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../gen.html#gen.ScoringExperiment"><code class="docutils literal notranslate"><span class="pre">ScoringExperiment</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../entropy.html">entropy.py</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../app.html"><code class="docutils literal notranslate"><span class="pre">gen_random_df()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../app.html#app.perform_action"><code class="docutils literal notranslate"><span class="pre">perform_action()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../publish_hf.html">publish_hf.py</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="vocab.html" title="previous chapter">&lt;no title&gt;</a></li>
+      <li>Next: <a href="model.html" title="next chapter">&lt;no title&gt;</a></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;Washington University in St. Louis.
+      
+      |
+      <a href="../../_sources/main/model/data.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

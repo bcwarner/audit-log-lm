@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>&lt;no title&gt; &#8212; audit-log-lm  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=12dfc556" />
+    <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="&lt;no title&gt;" href="modules.html" />
+    <link rel="prev" title="&lt;no title&gt;" href="data.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <hr class="docutils" />
+<dl class="py class" id="module-model.model">
+<dt class="sig sig-object py" id="model.model.EHRAuditGPT2">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">model.model.</span></span><span class="sig-name descname"><span class="pre">EHRAuditGPT2</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vocab</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#model.model.EHRAuditGPT2" title="Link to this definition">¶</a></dt>
+<dd><p>GPT2 model for the EHR audit log dataset. This model inherits from the GPT2LMHeadModel class from the transformers library,
+and only includes the <a class="reference internal" href="#model.model.TabularLoss" title="model.model.TabularLoss"><code class="xref py py-class docutils literal notranslate"><span class="pre">TabularLoss</span></code></a> loss function as a major difference.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>vocab</strong> (<a class="reference internal" href="vocab.html#model.vocab.EHRVocab" title="model.vocab.EHRVocab"><em>EHRVocab</em></a>)</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="model.model.EHRAuditGPT2.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_ids</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attention_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">past</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token_type_ids</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">position_ids</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">head_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inputs_embeds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">past_key_values</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_attentions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_hidden_states</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">should_break</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#model.model.EHRAuditGPT2.forward" title="Link to this definition">¶</a></dt>
+<dd><p>Forward pass for the GPT2 model. Full documentation can be found in the <code class="xref py py-class docutils literal notranslate"><span class="pre">GPT2LMHeadModel</span></code> class.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input_ids</strong> – The input IDs for the model.</p></li>
+<li><p><strong>labels</strong> – The labels for the model. Necessary for generating cross-entropy loss.</p></li>
+<li><p><strong>attention_mask</strong> – The attention mask for the model if desired.</p></li>
+<li><p><strong>kwargs</strong></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Returns a <code class="xref py py-class docutils literal notranslate"><span class="pre">CausalLMOutputWithCrossAttentions</span></code> object with the predicted logits and loss.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="model.model.EHRAuditLlama">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">model.model.</span></span><span class="sig-name descname"><span class="pre">EHRAuditLlama</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vocab</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#model.model.EHRAuditLlama" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>vocab</strong> (<a class="reference internal" href="vocab.html#model.vocab.EHRVocab" title="model.vocab.EHRVocab"><em>EHRVocab</em></a>)</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="model.model.EHRAuditLlama.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_ids</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attention_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">position_ids</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">past_key_values</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inputs_embeds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_attentions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_hidden_states</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">should_break</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#model.model.EHRAuditLlama.forward" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="model.model.EHRAuditRWKV">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">model.model.</span></span><span class="sig-name descname"><span class="pre">EHRAuditRWKV</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vocab</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#model.model.EHRAuditRWKV" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>vocab</strong> (<a class="reference internal" href="vocab.html#model.vocab.EHRVocab" title="model.vocab.EHRVocab"><em>EHRVocab</em></a>)</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="model.model.EHRAuditRWKV.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_ids</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attention_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inputs_embeds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_attentions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_hidden_states</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">should_break</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#model.model.EHRAuditRWKV.forward" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="model.model.EHRAuditTransformerXL">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">model.model.</span></span><span class="sig-name descname"><span class="pre">EHRAuditTransformerXL</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vocab</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#model.model.EHRAuditTransformerXL" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>vocab</strong> (<a class="reference internal" href="vocab.html#model.vocab.EHRVocab" title="model.vocab.EHRVocab"><em>EHRVocab</em></a>)</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="model.model.EHRAuditTransformerXL.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_ids</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mems</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">head_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inputs_embeds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_attentions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_hidden_states</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">training</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">should_break</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#model.model.EHRAuditTransformerXL.forward" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="model.model.TabularLoss">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">model.model.</span></span><span class="sig-name descname"><span class="pre">TabularLoss</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vocab</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">smoothing</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reduction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'mean'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#model.model.TabularLoss" title="Link to this definition">¶</a></dt>
+<dd><p>Loss function for the tabular transformer, based on Padhi et al. (2021).</p>
+<p>Essentially a cross-entropy loss, but with the ability to handle multiple columns.
+The loss is computed for each column with respect to the number of vocab entries for each column.
+It is then averaged across the columns if reduction is set to <cite>mean</cite> or returned as a by-column positional list if set to <cite>none</cite>.
+Note that the first column is shifted by one since there is no context for the first column’s first entry.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>config</strong> (<em>PretrainedConfig</em>) – The configuration for the model.</p></li>
+<li><p><strong>vocab</strong> (<a class="reference internal" href="vocab.html#model.vocab.EHRVocab" title="model.vocab.EHRVocab"><em>EHRVocab</em></a>) – The <a class="reference internal" href="vocab.html#model.vocab.EHRVocab" title="model.vocab.EHRVocab"><code class="xref py py-class docutils literal notranslate"><span class="pre">EHRVocab</span></code></a> object to use.</p></li>
+<li><p><strong>smoothing</strong> (<em>List</em>) – The amount of label smoothing to apply.</p></li>
+<li><p><strong>reduction</strong> (<em>str</em>) – The type of reduction to apply (<cite>mean</cite> or <cite>none</cite>).</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="model.model.TabularLoss.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">lm_logits</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#model.model.TabularLoss.forward" title="Link to this definition">¶</a></dt>
+<dd><p>Forward pass for the loss function. Some optimizations have been made to make this faster.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>lm_logits</strong> – The logits from the model for the sequence.</p></li>
+<li><p><strong>labels</strong> – The labels for the sequence.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">audit-log-lm</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../howto.html">Training from Scratch</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../howto.html#programming-style-considerations">Programming Style Considerations</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="vocab.html"><code class="docutils literal notranslate"><span class="pre">EHRAuditLogitsProcessor</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="vocab.html#model.vocab.EHRAuditTokenizer"><code class="docutils literal notranslate"><span class="pre">EHRAuditTokenizer</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="vocab.html#model.vocab.EHRVocab"><code class="docutils literal notranslate"><span class="pre">EHRVocab</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="data.html"><code class="docutils literal notranslate"><span class="pre">EHRAuditDataset</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="data.html#model.data.timestamp_space_calculation"><code class="docutils literal notranslate"><span class="pre">timestamp_space_calculation()</span></code></a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">EHRAuditGPT2</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#model.model.EHRAuditGPT2.forward"><code class="docutils literal notranslate"><span class="pre">EHRAuditGPT2.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="#model.model.EHRAuditLlama"><code class="docutils literal notranslate"><span class="pre">EHRAuditLlama</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#model.model.EHRAuditLlama.forward"><code class="docutils literal notranslate"><span class="pre">EHRAuditLlama.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="#model.model.EHRAuditRWKV"><code class="docutils literal notranslate"><span class="pre">EHRAuditRWKV</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#model.model.EHRAuditRWKV.forward"><code class="docutils literal notranslate"><span class="pre">EHRAuditRWKV.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="#model.model.EHRAuditTransformerXL"><code class="docutils literal notranslate"><span class="pre">EHRAuditTransformerXL</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#model.model.EHRAuditTransformerXL.forward"><code class="docutils literal notranslate"><span class="pre">EHRAuditTransformerXL.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="#model.model.TabularLoss"><code class="docutils literal notranslate"><span class="pre">TabularLoss</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#model.model.TabularLoss.forward"><code class="docutils literal notranslate"><span class="pre">TabularLoss.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html"><code class="docutils literal notranslate"><span class="pre">EHRAuditDataModule</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html#model.modules.EHRAuditPretraining"><code class="docutils literal notranslate"><span class="pre">EHRAuditPretraining</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html#model.modules.collate_fn"><code class="docutils literal notranslate"><span class="pre">collate_fn()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html#model.modules.worker_fn"><code class="docutils literal notranslate"><span class="pre">worker_fn()</span></code></a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../train.html">train.py</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../entropy_cache.html">entropy_cache.py</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cached_experiments.html">cached_experiments.py</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cached_experiments.html#cached_experiments.Experiment"><code class="docutils literal notranslate"><span class="pre">Experiment</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cached_experiments.html#cached_experiments.PerFieldEntropyExperiment"><code class="docutils literal notranslate"><span class="pre">PerFieldEntropyExperiment</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../gen.html">gen.py</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../gen.html#gen.GenerationExperiment"><code class="docutils literal notranslate"><span class="pre">GenerationExperiment</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../gen.html#gen.NextActionExperiment"><code class="docutils literal notranslate"><span class="pre">NextActionExperiment</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../gen.html#gen.ScoringExperiment"><code class="docutils literal notranslate"><span class="pre">ScoringExperiment</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../entropy.html">entropy.py</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../app.html"><code class="docutils literal notranslate"><span class="pre">gen_random_df()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../app.html#app.perform_action"><code class="docutils literal notranslate"><span class="pre">perform_action()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../publish_hf.html">publish_hf.py</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="data.html" title="previous chapter">&lt;no title&gt;</a></li>
+      <li>Next: <a href="modules.html" title="next chapter">&lt;no title&gt;</a></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;Washington University in St. Louis.
+      
+      |
+      <a href="../../_sources/main/model/model.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

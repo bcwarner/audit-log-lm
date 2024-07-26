@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Training from Scratch &#8212; audit-log-lm  documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=12dfc556" />
+    <script src="_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="_static/doctools.js?v=9a2dae69"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="&lt;no title&gt;" href="main/model/vocab.html" />
+    <link rel="prev" title="Overview" href="index.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="training-from-scratch">
+<h1>Training from Scratch<a class="headerlink" href="#training-from-scratch" title="Link to this heading">¶</a></h1>
+<p>Our models were trained on ICU clinicians from a single hospital system. The data is not publicly available, but the code can be reused for any set of clinicians for the Epic EHR audit log system (and potentially other EHR systems).</p>
+<section id="training-usage">
+<h2>Training Usage<a class="headerlink" href="#training-usage" title="Link to this heading">¶</a></h2>
+<p>The training code assumes that clinicians are split up into different folders and each folder has a CSV file with each audit log event as a row, with an action column, patient id column, and event time column (defaults to METRIC_NAME, PAT_ID, and ACCESS_TIME + ACCESS_INSTANT).</p>
+<p>Before the model can be used the configuration needs to be updated. A skeleton YAML file is provided in
+[<cite>config_template.yaml</cite>](config_template.yaml) and should be copied to <cite>config.yaml</cite> and updated.</p>
+<p>The vocab can be generated using <cite>python vocab.py</cite> inside the <cite>model</cite> folder given a list of METRIC_NAMEs and PAT_ID/ACCESS_TIME counts, and can be run once <cite>config.yaml</cite> is updated.</p>
+<p>The model can be run using <cite>python train.py</cite>. The dataset will be cached for a ~25x reduction in the amount of data used which will enable it to load faster. If needed <cite>–reset_cache</cite> can be used to overwrite the old data.</p>
+<p>The entropy over the test or validation set can be evaluated using <cite>python entropy.py</cite>. You’ll be prompted with the list of models you’ve trained. Entropy as it relates to other measures can be evaluated using <cite>python entropy.py –exp “exp1,exp2,…,expn”</cite>. In addition, the entropy values for each row can be cached with <cite>python entropy_cache.py</cite> to save them for later analysis.</p>
+<p>The generation capabilities can be evaluated using <cite>python gen.py</cite> which will run a selected generation metric for a given amount of samples.</p>
+<p>The <cite>model/modules.py</cite> file contains the PyTorch Lightning data and model modules for the project. The <cite>model/data.py</cite> file contains the data loading and preprocessing code, and we assume clinician data is split up into different folders.</p>
+</section>
+<section id="results-evaluation">
+<h2>Results evaluation<a class="headerlink" href="#results-evaluation" title="Link to this heading">¶</a></h2>
+<p>Some brief statistics were run using <cite>analysis/dataset_characteristics.py</cite>, we have not included them in the paper as they are beyond scope.</p>
+<p>Not all METRIC_NAMEs in the dataset were in our initial METRIC_NAME dictionary, so we made <cite>analysis/missing_metric_names.py</cite> to find them among the dataset. The output .xlsx can be used in vocab.py to add them to the METRIC_NAME dictionary.</p>
+<p>Because our training was interrupted and restarted several times, we wrote <cite>analysis/tb_join_plot.py</cite> to join the Tensorboard output.</p>
+</section>
+</section>
+<section id="programming-style-considerations">
+<h1>Programming Style Considerations<a class="headerlink" href="#programming-style-considerations" title="Link to this heading">¶</a></h1>
+<section id="abstraction">
+<h2>Abstraction<a class="headerlink" href="#abstraction" title="Link to this heading">¶</a></h2>
+<p>There are a lot of layers of abstraction from the usage of PyTorch/PyTorch Lightning/<code class="docutils literal notranslate"><span class="pre">transformers</span></code> to the actual implementation of the model.
+In terms of layers of abstraction, the model training is as follows:</p>
+<ul>
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">EHRAuditDataModule</span></code>: This is the PyTorch Lightning DataModule, which is responsible for loading the data and preparing it for the model.
+Everything in the DataModule is ideally separate from the model. The DataModule does a couple things:
+* Prepares the data for the first time if necessary in the <code class="xref py py-meth docutils literal notranslate"><span class="pre">prepare_data()</span></code> method.
+* Sets up the train/validation/test dataloaders in the <code class="xref py py-meth docutils literal notranslate"><span class="pre">setup()</span></code> method.
+* The <code class="xref py py-class docutils literal notranslate"><span class="pre">EHRAuditDataModule</span></code> is merely an abstraction for two PyTorch concepts: the Dataset and the DataLoader.</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>The DataLoader is a PyTorch concept that is responsible for loading the data in batches (this also relies on <cite>~model.data.collate_fn</cite>).</p></li>
+<li><p>The <code class="xref py py-class docutils literal notranslate"><span class="pre">EHRAuditDataset</span></code> responsible for loading audit log data into individual examples, and also tokenizes the data for the model.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">EHRAuditPretraining</span></code>: The Pytorch Lightning LightningModule, which has a training skeleton. If you look at it, most of the actual training has been conveniently
+abstracted away. It’s setup to work with any model we want. The optimizer is set to SophiaG, but we could use anything we want.</p></li>
+<li><p>The language model: One of the models in <a class="reference internal" href="main/model/model.html#module-model.model" title="model.model"><code class="xref py py-class docutils literal notranslate"><span class="pre">model</span></code></a>, which inherits from one of the language model architectures in <cite>transformers</cite>.
+This is where the actual model is defined. The model is responsible for taking in the input and returning predicted logits.
+* The key training component actually happens <a class="reference internal" href="main/model/model.html#model.model.TabularLoss" title="model.model.TabularLoss"><code class="xref py py-class docutils literal notranslate"><span class="pre">TabularLoss</span></code></a>, which provides the loss function for the model.</p></li>
+<li><p>The tokenizer: The tokenizer in <a class="reference internal" href="main/model/vocab.html#module-model.vocab" title="model.vocab"><code class="xref py py-mod docutils literal notranslate"><span class="pre">vocab</span></code></a> is responsible for a) building a vocab and b) tokenizing/detokenizing the data.
+b) is handled by the <code class="xref py py-class docutils literal notranslate"><span class="pre">EHRAuditDataset</span></code>.</p></li>
+<li><p>The PyTorch Lightning <code class="docutils literal notranslate"><span class="pre">Trainer</span></code>: This is the PyTorch Lightning object that is responsible for training the model. It glues together
+the <code class="xref py py-class docutils literal notranslate"><span class="pre">EHRAuditDataModule</span></code> and the <code class="xref py py-class docutils literal notranslate"><span class="pre">EHRAuditPretraining</span></code> modules (the latter of which glues together the model and the tokenizer). The trainer has a couple key settings:
+* A profiler if you want to profile the model’s runtime performance.
+* A Tensorboard logger that logs the model’s performance every run.
+* Checkpointing that saves every epoch.
+* Some small details, including gradient batch accumulation, maximum epochs, etc.</p></li>
+</ul>
+<p>After training, we don’t necessarily need all of these. For inference on a single, ad-hoc example, we only need the model, the vocab/tokenizer.
+For inference on a batch of examples from a specific provider, we only need a <cite>~model.data.EHRAuditDataset</cite> and the model, and tokenizer if you’re decoding.</p>
+</section>
+<section id="weak-spots-todo">
+<h2>Weak Spots/TODO<a class="headerlink" href="#weak-spots-todo" title="Link to this heading">¶</a></h2>
+<section id="configurations">
+<h3>Configurations<a class="headerlink" href="#configurations" title="Link to this heading">¶</a></h3>
+<p>One of the first things that should probably be done is to fix the configuration system. Currently, there are three versions
+of the model architecture (two of which are unpublished) and each architecture has its own git branch, which is unsustainable.
+The major problems are as follows:</p>
+<ul>
+<li><p>Each architecture has its own configuration file, which must be manually changed out when switching.</p></li>
+<li><p>Each architecture has its own branch, which must be manually checked out when switching.</p></li>
+<li><p>Some parts of the config can be made public, while others are PHI and must be kept private.</p></li>
+<li><p>Other parts have to be local to the machine, such as the path to the data.</p></li>
+<li><p>Lots of command line arguments should really be fixed multirun configuration options, which would enhance reproducibility.</p></li>
+<li><p>Every file has to have some boilerplate code to load the configuration, which can be error-prone:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">config_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">normpath</span><span class="p">(</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">),</span> <span class="s2">&quot;config.yaml&quot;</span><span class="p">)</span>
+    <span class="p">)</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">config_path</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">config</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+</ul>
+<p>The correct way to do this would be with a config system like Hydra, which allows for a hierarchical configuration system
+and can be adjusted to allow for private, localized, and permutable configuration options. I don’t know if Hydra is the best,
+but I do know this would solve all of the above problems.</p>
+</section>
+<section id="tokenization">
+<h3>Tokenization<a class="headerlink" href="#tokenization" title="Link to this heading">¶</a></h3>
+<p>The tokenization could probably be refactored to be more efficient. Currently, the tokenization is done in both <code class="docutils literal notranslate"><span class="pre">~model.data.EHRAuditDataset</span></code>
+and <code class="docutils literal notranslate"><span class="pre">~model.vocab.EHRAuditTokenizer</span></code>. Both serve different purposes, but it might be possible to combine them into one class. On top of that,
+the tokenization could be more stylistically consistent with the Hugging Face API, but full compatibility won’t be possible given the nature of the data.</p>
+</section>
+<section id="further-refactoring">
+<h3>Further Refactoring<a class="headerlink" href="#further-refactoring" title="Link to this heading">¶</a></h3>
+<p>Since this project started, a lot of new tools have come out for the type of work we’re doing (i.e. tabular transformers). It may be possible
+to abstract the model further to use those tools for greater reproducibility and efficiency. May only be worthwhile in certain circumstances.</p>
+</section>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">audit-log-lm</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Training from Scratch</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#training-usage">Training Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#results-evaluation">Results evaluation</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="#programming-style-considerations">Programming Style Considerations</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#abstraction">Abstraction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#weak-spots-todo">Weak Spots/TODO</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#configurations">Configurations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#tokenization">Tokenization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#further-refactoring">Further Refactoring</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="main/model/vocab.html"><code class="docutils literal notranslate"><span class="pre">EHRAuditLogitsProcessor</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/vocab.html#model.vocab.EHRAuditTokenizer"><code class="docutils literal notranslate"><span class="pre">EHRAuditTokenizer</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/vocab.html#model.vocab.EHRVocab"><code class="docutils literal notranslate"><span class="pre">EHRVocab</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/data.html"><code class="docutils literal notranslate"><span class="pre">EHRAuditDataset</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/data.html#model.data.timestamp_space_calculation"><code class="docutils literal notranslate"><span class="pre">timestamp_space_calculation()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/model.html"><code class="docutils literal notranslate"><span class="pre">EHRAuditGPT2</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/model.html#model.model.EHRAuditLlama"><code class="docutils literal notranslate"><span class="pre">EHRAuditLlama</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/model.html#model.model.EHRAuditRWKV"><code class="docutils literal notranslate"><span class="pre">EHRAuditRWKV</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/model.html#model.model.EHRAuditTransformerXL"><code class="docutils literal notranslate"><span class="pre">EHRAuditTransformerXL</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/model.html#model.model.TabularLoss"><code class="docutils literal notranslate"><span class="pre">TabularLoss</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/modules.html"><code class="docutils literal notranslate"><span class="pre">EHRAuditDataModule</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/modules.html#model.modules.EHRAuditPretraining"><code class="docutils literal notranslate"><span class="pre">EHRAuditPretraining</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/modules.html#model.modules.collate_fn"><code class="docutils literal notranslate"><span class="pre">collate_fn()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/modules.html#model.modules.worker_fn"><code class="docutils literal notranslate"><span class="pre">worker_fn()</span></code></a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="main/train.html">train.py</a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/entropy_cache.html">entropy_cache.py</a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/cached_experiments.html">cached_experiments.py</a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/cached_experiments.html#cached_experiments.Experiment"><code class="docutils literal notranslate"><span class="pre">Experiment</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/cached_experiments.html#cached_experiments.PerFieldEntropyExperiment"><code class="docutils literal notranslate"><span class="pre">PerFieldEntropyExperiment</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/gen.html">gen.py</a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/gen.html#gen.GenerationExperiment"><code class="docutils literal notranslate"><span class="pre">GenerationExperiment</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/gen.html#gen.NextActionExperiment"><code class="docutils literal notranslate"><span class="pre">NextActionExperiment</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/gen.html#gen.ScoringExperiment"><code class="docutils literal notranslate"><span class="pre">ScoringExperiment</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/entropy.html">entropy.py</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="main/app.html"><code class="docutils literal notranslate"><span class="pre">gen_random_df()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/app.html#app.perform_action"><code class="docutils literal notranslate"><span class="pre">perform_action()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/publish_hf.html">publish_hf.py</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">Overview</a></li>
+      <li>Next: <a href="main/model/vocab.html" title="next chapter">&lt;no title&gt;</a></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;Washington University in St. Louis.
+      
+      |
+      <a href="_sources/howto.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

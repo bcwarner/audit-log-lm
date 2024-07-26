@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>&lt;no title&gt; &#8212; audit-log-lm  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=12dfc556" />
+    <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="&lt;no title&gt;" href="data.html" />
+    <link rel="prev" title="Training from Scratch" href="../../howto.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <hr class="docutils" />
+<dl class="py class" id="module-model.vocab">
+<dt class="sig sig-object py" id="model.vocab.EHRAuditLogitsProcessor">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">model.vocab.</span></span><span class="sig-name descname"><span class="pre">EHRAuditLogitsProcessor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vocab</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#model.vocab.EHRAuditLogitsProcessor" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>vocab</strong> (<a class="reference internal" href="#model.vocab.EHRVocab" title="model.vocab.EHRVocab"><em>EHRVocab</em></a>) – <code class="docutils literal notranslate"><span class="pre">~model.vocab.EHRVocab</span></code> instance to use for processing.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="model.vocab.EHRAuditTokenizer">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">model.vocab.</span></span><span class="sig-name descname"><span class="pre">EHRAuditTokenizer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vocab</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp_spaces_cal</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">user_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'PAT_ID'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">user_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">128</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ACCESS_TIME'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp_sort_cols</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['ACCESS_TIME',</span> <span class="pre">'ACCESS_INSTANT']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">event_type_cols</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['METRIC_NAME']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_length</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1024</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pat_ids_cat</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#model.vocab.EHRAuditTokenizer" title="Link to this definition">¶</a></dt>
+<dd><p>Tokenizer for an EHR audit log sequence using a vocab.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>vocab</strong> (<a class="reference internal" href="#model.vocab.EHRVocab" title="model.vocab.EHRVocab"><em>EHRVocab</em></a>) – <code class="docutils literal notranslate"><span class="pre">~model.vocab.EHRVocab</span></code> instance to use for tokenization.</p></li>
+<li><p><strong>timestamp_spaces_cal</strong> (<em>List</em><em>[</em><em>float</em><em>]</em>) – List of timestamp spaces to use for quantization.</p></li>
+<li><p><strong>user_col</strong> (<em>str</em>) – Name of the user ID column.</p></li>
+<li><p><strong>user_max</strong> (<em>int</em>) – Maximum user IDs.</p></li>
+<li><p><strong>timestamp_col</strong> (<em>str</em>) – Name of the timestamp column.</p></li>
+<li><p><strong>timestamp_sort_cols</strong> (<em>List</em><em>[</em><em>str</em><em>]</em>) – Columns to sort by before tokenization.</p></li>
+<li><p><strong>event_type_cols</strong> (<em>List</em><em>[</em><em>str</em><em>]</em>) – Columns that describe the event type.</p></li>
+<li><p><strong>max_length</strong> (<em>int</em>) – Maximum length of the input sequence (i.e. the context length of the model).</p></li>
+<li><p><strong>pat_ids_cat</strong> (<em>bool</em>) – Whether patient IDs should be treated categorically/in the order they appear.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="model.vocab.EHRAuditTokenizer.batch_decode">
+<span class="sig-name descname"><span class="pre">batch_decode</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">token_ids</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#model.vocab.EHRAuditTokenizer.batch_decode" title="Link to this definition">¶</a></dt>
+<dd><p>Decodes a list of lists of token IDs into a list of lists of field-value pairs and converts to the desired output type
+:param token_ids: List of lists of token IDs to decode.
+:param output_type: Output type to convert to. If None, defaults to a Pandas DataFrame.
+:return: A list of lists of field-value pairs.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>token_ids</strong> (<em>List</em><em>[</em><em>List</em><em>[</em><em>int</em><em>]</em><em>]</em>)</p></li>
+<li><p><strong>output_type</strong> (<em>type</em>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="model.vocab.EHRAuditTokenizer.decode">
+<span class="sig-name descname"><span class="pre">decode</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">token_ids</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#model.vocab.EHRAuditTokenizer.decode" title="Link to this definition">¶</a></dt>
+<dd><p>Decodes a list of token IDs into a list of field-value pairs and converts to the desired output type
+:param token_ids: List of token IDs to decode.
+:param output_type: Output type to convert to. If None, defaults to a Pandas DataFrame.
+:return: A list of field-value pairs.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>token_ids</strong> (<em>List</em><em>[</em><em>int</em><em>]</em>)</p></li>
+<li><p><strong>output_type</strong> (<em>type</em>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="model.vocab.EHRAuditTokenizer.encode">
+<span class="sig-name descname"><span class="pre">encode</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#model.vocab.EHRAuditTokenizer.encode" title="Link to this definition">¶</a></dt>
+<dd><p>Encodes an audit log DataFrame into a tokenized sequence.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>df</strong> (<em>DataFrame</em>)</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="model.vocab.EHRVocab">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">model.vocab.</span></span><span class="sig-name descname"><span class="pre">EHRVocab</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">categorical_column_opts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vocab_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#model.vocab.EHRVocab" title="Link to this definition">¶</a></dt>
+<dd><p>Vocabulary for the EHR audit log dataset, styled after Padhi et al. (2021).</p>
+<p>There are a few components to the vocab:
+* Field tokens: Mapping from field, to value, to token.
+* Field IDs: Mapping from field to list of token IDs.
+* Global tokens: Mapping from all token IDs to field, value, and field ID.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>categorical_column_opts</strong> (<em>Dict</em><em>[</em><em>str</em><em>, </em><em>List</em><em>[</em><em>str</em><em>]</em><em>]</em>) – Mapping of categorical column names to the list of possible values.</p></li>
+<li><p><strong>max_len</strong> – Maximum length of the input sequence.</p></li>
+<li><p><strong>vocab_path</strong> – Where to save/load the vocab.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="model.vocab.EHRVocab.field_names">
+<span class="sig-name descname"><span class="pre">field_names</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">include_special</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#model.vocab.EHRVocab.field_names" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the field names.
+:param include_special: Whether to include special tokens.
+:return:</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="model.vocab.EHRVocab.field_to_token">
+<span class="sig-name descname"><span class="pre">field_to_token</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">field</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#model.vocab.EHRVocab.field_to_token" title="Link to this definition">¶</a></dt>
+<dd><p>Converts a field-value pair to a token.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>field</strong> – The field name.</p></li>
+<li><p><strong>value</strong></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="model.vocab.EHRVocab.global_to_token">
+<span class="sig-name descname"><span class="pre">global_to_token</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">global_id</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#model.vocab.EHRVocab.global_to_token" title="Link to this definition">¶</a></dt>
+<dd><p>Converts a global ID to a field, value, and field ID.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>global_id</strong> – Global ID to convert.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Returns a tuple of field, value, and field ID.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="model.vocab.EHRVocab.globals_to_locals">
+<span class="sig-name descname"><span class="pre">globals_to_locals</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">global_ids</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#model.vocab.EHRVocab.globals_to_locals" title="Link to this definition">¶</a></dt>
+<dd><p>Slow version of globals_to_locals_torch.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>global_ids</strong> (<em>Tensor</em>) – Global IDs to convert.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Local IDs.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="model.vocab.EHRVocab.globals_to_locals_torch">
+<span class="sig-name descname"><span class="pre">globals_to_locals_torch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">global_ids</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">field_start</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#model.vocab.EHRVocab.globals_to_locals_torch" title="Link to this definition">¶</a></dt>
+<dd><p>Converts global IDs to local IDs, clamping below only.</p>
+<p>Basic idea is each sub-vocab is always fixed in location, so the local ids are = global ids - offset.
+If this assumption is not true, then it will break.
+:param global_ids: Global IDs to convert.
+:param field_start: Field start.
+:return: Local IDs.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>global_ids</strong> (<em>Tensor</em>)</p></li>
+<li><p><strong>field_start</strong> (<em>int</em>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="model.vocab.EHRVocab.save">
+<span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#model.vocab.EHRVocab.save" title="Link to this definition">¶</a></dt>
+<dd><p>Saves the vocab to the vocab path.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>vocab_path</strong> – Path to save the vocab.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">audit-log-lm</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../howto.html">Training from Scratch</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../howto.html#programming-style-considerations">Programming Style Considerations</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">EHRAuditLogitsProcessor</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#model.vocab.EHRAuditTokenizer"><code class="docutils literal notranslate"><span class="pre">EHRAuditTokenizer</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#model.vocab.EHRAuditTokenizer.batch_decode"><code class="docutils literal notranslate"><span class="pre">EHRAuditTokenizer.batch_decode()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#model.vocab.EHRAuditTokenizer.decode"><code class="docutils literal notranslate"><span class="pre">EHRAuditTokenizer.decode()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#model.vocab.EHRAuditTokenizer.encode"><code class="docutils literal notranslate"><span class="pre">EHRAuditTokenizer.encode()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="#model.vocab.EHRVocab"><code class="docutils literal notranslate"><span class="pre">EHRVocab</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#model.vocab.EHRVocab.field_names"><code class="docutils literal notranslate"><span class="pre">EHRVocab.field_names()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#model.vocab.EHRVocab.field_to_token"><code class="docutils literal notranslate"><span class="pre">EHRVocab.field_to_token()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#model.vocab.EHRVocab.global_to_token"><code class="docutils literal notranslate"><span class="pre">EHRVocab.global_to_token()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#model.vocab.EHRVocab.globals_to_locals"><code class="docutils literal notranslate"><span class="pre">EHRVocab.globals_to_locals()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#model.vocab.EHRVocab.globals_to_locals_torch"><code class="docutils literal notranslate"><span class="pre">EHRVocab.globals_to_locals_torch()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#model.vocab.EHRVocab.save"><code class="docutils literal notranslate"><span class="pre">EHRVocab.save()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="data.html"><code class="docutils literal notranslate"><span class="pre">EHRAuditDataset</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="data.html#model.data.timestamp_space_calculation"><code class="docutils literal notranslate"><span class="pre">timestamp_space_calculation()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="model.html"><code class="docutils literal notranslate"><span class="pre">EHRAuditGPT2</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="model.html#model.model.EHRAuditLlama"><code class="docutils literal notranslate"><span class="pre">EHRAuditLlama</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="model.html#model.model.EHRAuditRWKV"><code class="docutils literal notranslate"><span class="pre">EHRAuditRWKV</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="model.html#model.model.EHRAuditTransformerXL"><code class="docutils literal notranslate"><span class="pre">EHRAuditTransformerXL</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="model.html#model.model.TabularLoss"><code class="docutils literal notranslate"><span class="pre">TabularLoss</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html"><code class="docutils literal notranslate"><span class="pre">EHRAuditDataModule</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html#model.modules.EHRAuditPretraining"><code class="docutils literal notranslate"><span class="pre">EHRAuditPretraining</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html#model.modules.collate_fn"><code class="docutils literal notranslate"><span class="pre">collate_fn()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html#model.modules.worker_fn"><code class="docutils literal notranslate"><span class="pre">worker_fn()</span></code></a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../train.html">train.py</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../entropy_cache.html">entropy_cache.py</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cached_experiments.html">cached_experiments.py</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cached_experiments.html#cached_experiments.Experiment"><code class="docutils literal notranslate"><span class="pre">Experiment</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cached_experiments.html#cached_experiments.PerFieldEntropyExperiment"><code class="docutils literal notranslate"><span class="pre">PerFieldEntropyExperiment</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../gen.html">gen.py</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../gen.html#gen.GenerationExperiment"><code class="docutils literal notranslate"><span class="pre">GenerationExperiment</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../gen.html#gen.NextActionExperiment"><code class="docutils literal notranslate"><span class="pre">NextActionExperiment</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../gen.html#gen.ScoringExperiment"><code class="docutils literal notranslate"><span class="pre">ScoringExperiment</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../entropy.html">entropy.py</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../app.html"><code class="docutils literal notranslate"><span class="pre">gen_random_df()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../app.html#app.perform_action"><code class="docutils literal notranslate"><span class="pre">perform_action()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../publish_hf.html">publish_hf.py</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="../../howto.html" title="previous chapter">Training from Scratch</a></li>
+      <li>Next: <a href="data.html" title="next chapter">&lt;no title&gt;</a></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;Washington University in St. Louis.
+      
+      |
+      <a href="../../_sources/main/model/vocab.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

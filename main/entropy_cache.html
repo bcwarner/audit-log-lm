@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>entropy_cache.py &#8212; audit-log-lm  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=12dfc556" />
+    <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="cached_experiments.py" href="cached_experiments.html" />
+    <link rel="prev" title="train.py" href="train.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <p><code class="xref py py-mod docutils literal notranslate"><span class="pre">entropy_cache</span></code> – Cache entropy values calculated from trained language models</p>
+<section id="entropy-cache-py">
+<h1>entropy_cache.py<a class="headerlink" href="#entropy-cache-py" title="Link to this heading">¶</a></h1>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">usage: entropy_cache.py [-h] [--model MODEL] [--val] [--reset_cache] [--debug]</span>
+<span class="go">                        [--verify]</span>
+</pre></div>
+</div>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-entropy_cache.py-h">
+<span id="cmdoption-entropy_cache.py-help"></span><span class="sig-name descname"><span class="pre">-h</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--help</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-entropy_cache.py-h" title="Link to this definition">¶</a></dt>
+<dd><p>show this help message and exit</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-entropy_cache.py-model">
+<span class="sig-name descname"><span class="pre">--model</span></span><span class="sig-prename descclassname"> <span class="pre">&lt;model&gt;</span></span><a class="headerlink" href="#cmdoption-entropy_cache.py-model" title="Link to this definition">¶</a></dt>
+<dd><p>Model to use for pretraining.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-entropy_cache.py-val">
+<span class="sig-name descname"><span class="pre">--val</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-entropy_cache.py-val" title="Link to this definition">¶</a></dt>
+<dd><p>Run with the validation dataset instead of the test.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-entropy_cache.py-reset_cache">
+<span class="sig-name descname"><span class="pre">--reset_cache</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-entropy_cache.py-reset_cache" title="Link to this definition">¶</a></dt>
+<dd><p>Whether to reset the cache before analysis.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-entropy_cache.py-debug">
+<span class="sig-name descname"><span class="pre">--debug</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-entropy_cache.py-debug" title="Link to this definition">¶</a></dt>
+<dd><p>Whether to run with single thread.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-entropy_cache.py-verify">
+<span class="sig-name descname"><span class="pre">--verify</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-entropy_cache.py-verify" title="Link to this definition">¶</a></dt>
+<dd><p>Whether to verify the entropy values line up with the dataset.</p>
+</dd></dl>
+
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">audit-log-lm</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../howto.html">Training from Scratch</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../howto.html#programming-style-considerations">Programming Style Considerations</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="model/vocab.html"><code class="docutils literal notranslate"><span class="pre">EHRAuditLogitsProcessor</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="model/vocab.html#model.vocab.EHRAuditTokenizer"><code class="docutils literal notranslate"><span class="pre">EHRAuditTokenizer</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="model/vocab.html#model.vocab.EHRVocab"><code class="docutils literal notranslate"><span class="pre">EHRVocab</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="model/data.html"><code class="docutils literal notranslate"><span class="pre">EHRAuditDataset</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="model/data.html#model.data.timestamp_space_calculation"><code class="docutils literal notranslate"><span class="pre">timestamp_space_calculation()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="model/model.html"><code class="docutils literal notranslate"><span class="pre">EHRAuditGPT2</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="model/model.html#model.model.EHRAuditLlama"><code class="docutils literal notranslate"><span class="pre">EHRAuditLlama</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="model/model.html#model.model.EHRAuditRWKV"><code class="docutils literal notranslate"><span class="pre">EHRAuditRWKV</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="model/model.html#model.model.EHRAuditTransformerXL"><code class="docutils literal notranslate"><span class="pre">EHRAuditTransformerXL</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="model/model.html#model.model.TabularLoss"><code class="docutils literal notranslate"><span class="pre">TabularLoss</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="model/modules.html"><code class="docutils literal notranslate"><span class="pre">EHRAuditDataModule</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="model/modules.html#model.modules.EHRAuditPretraining"><code class="docutils literal notranslate"><span class="pre">EHRAuditPretraining</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="model/modules.html#model.modules.collate_fn"><code class="docutils literal notranslate"><span class="pre">collate_fn()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="model/modules.html#model.modules.worker_fn"><code class="docutils literal notranslate"><span class="pre">worker_fn()</span></code></a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="train.html">train.py</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">entropy_cache.py</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cached_experiments.html">cached_experiments.py</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cached_experiments.html#cached_experiments.Experiment"><code class="docutils literal notranslate"><span class="pre">Experiment</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="cached_experiments.html#cached_experiments.PerFieldEntropyExperiment"><code class="docutils literal notranslate"><span class="pre">PerFieldEntropyExperiment</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="gen.html">gen.py</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gen.html#gen.GenerationExperiment"><code class="docutils literal notranslate"><span class="pre">GenerationExperiment</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="gen.html#gen.NextActionExperiment"><code class="docutils literal notranslate"><span class="pre">NextActionExperiment</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="gen.html#gen.ScoringExperiment"><code class="docutils literal notranslate"><span class="pre">ScoringExperiment</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="entropy.html">entropy.py</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="app.html"><code class="docutils literal notranslate"><span class="pre">gen_random_df()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="app.html#app.perform_action"><code class="docutils literal notranslate"><span class="pre">perform_action()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="publish_hf.html">publish_hf.py</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="train.html" title="previous chapter">train.py</a></li>
+      <li>Next: <a href="cached_experiments.html" title="next chapter">cached_experiments.py</a></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;Washington University in St. Louis.
+      
+      |
+      <a href="../_sources/main/entropy_cache.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

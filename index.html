@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Overview &#8212; audit-log-lm  documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=12dfc556" />
+    <script src="_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="_static/doctools.js?v=9a2dae69"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Training from Scratch" href="howto.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="overview">
+<h1>Overview<a class="headerlink" href="#overview" title="Link to this heading">¶</a></h1>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="howto.html">Training from Scratch</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="howto.html#training-usage">Training Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="howto.html#results-evaluation">Results evaluation</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="howto.html#programming-style-considerations">Programming Style Considerations</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="howto.html#abstraction">Abstraction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="howto.html#weak-spots-todo">Weak Spots/TODO</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="howto.html#configurations">Configurations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="howto.html#tokenization">Tokenization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="howto.html#further-refactoring">Further Refactoring</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+<section id="library-documentation">
+<h2>Library Documentation<a class="headerlink" href="#library-documentation" title="Link to this heading">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="main/model/vocab.html"><code class="docutils literal notranslate"><span class="pre">EHRAuditLogitsProcessor</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/vocab.html#model.vocab.EHRAuditTokenizer"><code class="docutils literal notranslate"><span class="pre">EHRAuditTokenizer</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="main/model/vocab.html#model.vocab.EHRAuditTokenizer.batch_decode"><code class="docutils literal notranslate"><span class="pre">EHRAuditTokenizer.batch_decode()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/model/vocab.html#model.vocab.EHRAuditTokenizer.decode"><code class="docutils literal notranslate"><span class="pre">EHRAuditTokenizer.decode()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/model/vocab.html#model.vocab.EHRAuditTokenizer.encode"><code class="docutils literal notranslate"><span class="pre">EHRAuditTokenizer.encode()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/vocab.html#model.vocab.EHRVocab"><code class="docutils literal notranslate"><span class="pre">EHRVocab</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="main/model/vocab.html#model.vocab.EHRVocab.field_names"><code class="docutils literal notranslate"><span class="pre">EHRVocab.field_names()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/model/vocab.html#model.vocab.EHRVocab.field_to_token"><code class="docutils literal notranslate"><span class="pre">EHRVocab.field_to_token()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/model/vocab.html#model.vocab.EHRVocab.global_to_token"><code class="docutils literal notranslate"><span class="pre">EHRVocab.global_to_token()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/model/vocab.html#model.vocab.EHRVocab.globals_to_locals"><code class="docutils literal notranslate"><span class="pre">EHRVocab.globals_to_locals()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/model/vocab.html#model.vocab.EHRVocab.globals_to_locals_torch"><code class="docutils literal notranslate"><span class="pre">EHRVocab.globals_to_locals_torch()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/model/vocab.html#model.vocab.EHRVocab.save"><code class="docutils literal notranslate"><span class="pre">EHRVocab.save()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/data.html"><code class="docutils literal notranslate"><span class="pre">EHRAuditDataset</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="main/model/data.html#model.data.EHRAuditDataset.load"><code class="docutils literal notranslate"><span class="pre">EHRAuditDataset.load()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/model/data.html#model.data.EHRAuditDataset.load_from_cache"><code class="docutils literal notranslate"><span class="pre">EHRAuditDataset.load_from_cache()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/model/data.html#model.data.EHRAuditDataset.load_from_log"><code class="docutils literal notranslate"><span class="pre">EHRAuditDataset.load_from_log()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/data.html#model.data.timestamp_space_calculation"><code class="docutils literal notranslate"><span class="pre">timestamp_space_calculation()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/model.html"><code class="docutils literal notranslate"><span class="pre">EHRAuditGPT2</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="main/model/model.html#model.model.EHRAuditGPT2.forward"><code class="docutils literal notranslate"><span class="pre">EHRAuditGPT2.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/model.html#model.model.EHRAuditLlama"><code class="docutils literal notranslate"><span class="pre">EHRAuditLlama</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="main/model/model.html#model.model.EHRAuditLlama.forward"><code class="docutils literal notranslate"><span class="pre">EHRAuditLlama.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/model.html#model.model.EHRAuditRWKV"><code class="docutils literal notranslate"><span class="pre">EHRAuditRWKV</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="main/model/model.html#model.model.EHRAuditRWKV.forward"><code class="docutils literal notranslate"><span class="pre">EHRAuditRWKV.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/model.html#model.model.EHRAuditTransformerXL"><code class="docutils literal notranslate"><span class="pre">EHRAuditTransformerXL</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="main/model/model.html#model.model.EHRAuditTransformerXL.forward"><code class="docutils literal notranslate"><span class="pre">EHRAuditTransformerXL.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/model.html#model.model.TabularLoss"><code class="docutils literal notranslate"><span class="pre">TabularLoss</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="main/model/model.html#model.model.TabularLoss.forward"><code class="docutils literal notranslate"><span class="pre">TabularLoss.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/modules.html"><code class="docutils literal notranslate"><span class="pre">EHRAuditDataModule</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="main/model/modules.html#model.modules.EHRAuditDataModule.prepare_data"><code class="docutils literal notranslate"><span class="pre">EHRAuditDataModule.prepare_data()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/model/modules.html#model.modules.EHRAuditDataModule.setup"><code class="docutils literal notranslate"><span class="pre">EHRAuditDataModule.setup()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/model/modules.html#model.modules.EHRAuditDataModule.test_dataloader"><code class="docutils literal notranslate"><span class="pre">EHRAuditDataModule.test_dataloader()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/model/modules.html#model.modules.EHRAuditDataModule.train_dataloader"><code class="docutils literal notranslate"><span class="pre">EHRAuditDataModule.train_dataloader()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/model/modules.html#model.modules.EHRAuditDataModule.val_dataloader"><code class="docutils literal notranslate"><span class="pre">EHRAuditDataModule.val_dataloader()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/modules.html#model.modules.EHRAuditPretraining"><code class="docutils literal notranslate"><span class="pre">EHRAuditPretraining</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="main/model/modules.html#model.modules.EHRAuditPretraining.configure_optimizers"><code class="docutils literal notranslate"><span class="pre">EHRAuditPretraining.configure_optimizers()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/model/modules.html#model.modules.EHRAuditPretraining.forward"><code class="docutils literal notranslate"><span class="pre">EHRAuditPretraining.forward()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/model/modules.html#model.modules.EHRAuditPretraining.predict_step"><code class="docutils literal notranslate"><span class="pre">EHRAuditPretraining.predict_step()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/model/modules.html#model.modules.EHRAuditPretraining.test_step"><code class="docutils literal notranslate"><span class="pre">EHRAuditPretraining.test_step()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/model/modules.html#model.modules.EHRAuditPretraining.training_step"><code class="docutils literal notranslate"><span class="pre">EHRAuditPretraining.training_step()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/model/modules.html#model.modules.EHRAuditPretraining.validation_step"><code class="docutils literal notranslate"><span class="pre">EHRAuditPretraining.validation_step()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/modules.html#model.modules.collate_fn"><code class="docutils literal notranslate"><span class="pre">collate_fn()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/modules.html#model.modules.worker_fn"><code class="docutils literal notranslate"><span class="pre">worker_fn()</span></code></a></li>
+</ul>
+</div>
+</section>
+<section id="script-documentation">
+<h2>Script Documentation<a class="headerlink" href="#script-documentation" title="Link to this heading">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="main/train.html">train.py</a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/entropy_cache.html">entropy_cache.py</a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/cached_experiments.html">cached_experiments.py</a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/cached_experiments.html#cached_experiments.Experiment"><code class="docutils literal notranslate"><span class="pre">Experiment</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="main/cached_experiments.html#cached_experiments.Experiment.map"><code class="docutils literal notranslate"><span class="pre">Experiment.map()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/cached_experiments.html#cached_experiments.Experiment.on_finish"><code class="docutils literal notranslate"><span class="pre">Experiment.on_finish()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/cached_experiments.html#cached_experiments.Experiment.plot"><code class="docutils literal notranslate"><span class="pre">Experiment.plot()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/cached_experiments.html#cached_experiments.Experiment.requirements"><code class="docutils literal notranslate"><span class="pre">Experiment.requirements()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="main/cached_experiments.html#cached_experiments.PerFieldEntropyExperiment"><code class="docutils literal notranslate"><span class="pre">PerFieldEntropyExperiment</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="main/cached_experiments.html#cached_experiments.PerFieldEntropyExperiment.map"><code class="docutils literal notranslate"><span class="pre">PerFieldEntropyExperiment.map()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/cached_experiments.html#cached_experiments.PerFieldEntropyExperiment.on_finish"><code class="docutils literal notranslate"><span class="pre">PerFieldEntropyExperiment.on_finish()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/cached_experiments.html#cached_experiments.PerFieldEntropyExperiment.plot"><code class="docutils literal notranslate"><span class="pre">PerFieldEntropyExperiment.plot()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/cached_experiments.html#cached_experiments.PerFieldEntropyExperiment.requirements"><code class="docutils literal notranslate"><span class="pre">PerFieldEntropyExperiment.requirements()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="main/gen.html">gen.py</a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/gen.html#gen.GenerationExperiment"><code class="docutils literal notranslate"><span class="pre">GenerationExperiment</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="main/gen.html#gen.GenerationExperiment.eval_generation"><code class="docutils literal notranslate"><span class="pre">GenerationExperiment.eval_generation()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/gen.html#gen.GenerationExperiment.examples_seen"><code class="docutils literal notranslate"><span class="pre">GenerationExperiment.examples_seen()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/gen.html#gen.GenerationExperiment.min_size"><code class="docutils literal notranslate"><span class="pre">GenerationExperiment.min_size()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/gen.html#gen.GenerationExperiment.on_finish"><code class="docutils literal notranslate"><span class="pre">GenerationExperiment.on_finish()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/gen.html#gen.GenerationExperiment.plot"><code class="docutils literal notranslate"><span class="pre">GenerationExperiment.plot()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/gen.html#gen.GenerationExperiment.stopping_criteria"><code class="docutils literal notranslate"><span class="pre">GenerationExperiment.stopping_criteria()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/gen.html#gen.GenerationExperiment.window_size"><code class="docutils literal notranslate"><span class="pre">GenerationExperiment.window_size()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="main/gen.html#gen.NextActionExperiment"><code class="docutils literal notranslate"><span class="pre">NextActionExperiment</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="main/gen.html#gen.NextActionExperiment.eval_generation"><code class="docutils literal notranslate"><span class="pre">NextActionExperiment.eval_generation()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/gen.html#gen.NextActionExperiment.examples_seen"><code class="docutils literal notranslate"><span class="pre">NextActionExperiment.examples_seen()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/gen.html#gen.NextActionExperiment.on_finish"><code class="docutils literal notranslate"><span class="pre">NextActionExperiment.on_finish()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/gen.html#gen.NextActionExperiment.plot"><code class="docutils literal notranslate"><span class="pre">NextActionExperiment.plot()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/gen.html#gen.NextActionExperiment.stopping_criteria"><code class="docutils literal notranslate"><span class="pre">NextActionExperiment.stopping_criteria()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/gen.html#gen.NextActionExperiment.window_size"><code class="docutils literal notranslate"><span class="pre">NextActionExperiment.window_size()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="main/gen.html#gen.ScoringExperiment"><code class="docutils literal notranslate"><span class="pre">ScoringExperiment</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="main/gen.html#gen.ScoringExperiment.eval_generation"><code class="docutils literal notranslate"><span class="pre">ScoringExperiment.eval_generation()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/gen.html#gen.ScoringExperiment.examples_seen"><code class="docutils literal notranslate"><span class="pre">ScoringExperiment.examples_seen()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/gen.html#gen.ScoringExperiment.on_finish"><code class="docutils literal notranslate"><span class="pre">ScoringExperiment.on_finish()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/gen.html#gen.ScoringExperiment.plot"><code class="docutils literal notranslate"><span class="pre">ScoringExperiment.plot()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/gen.html#gen.ScoringExperiment.stopping_criteria"><code class="docutils literal notranslate"><span class="pre">ScoringExperiment.stopping_criteria()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="main/gen.html#gen.ScoringExperiment.window_size"><code class="docutils literal notranslate"><span class="pre">ScoringExperiment.window_size()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="main/entropy.html">entropy.py</a></li>
+</ul>
+</div>
+</section>
+<section id="hugging-face-documentation">
+<h2>Hugging Face Documentation<a class="headerlink" href="#hugging-face-documentation" title="Link to this heading">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="main/app.html"><code class="docutils literal notranslate"><span class="pre">gen_random_df()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/app.html#app.perform_action"><code class="docutils literal notranslate"><span class="pre">perform_action()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/publish_hf.html">publish_hf.py</a></li>
+</ul>
+</div>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="#">audit-log-lm</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="howto.html">Training from Scratch</a></li>
+<li class="toctree-l1"><a class="reference internal" href="howto.html#programming-style-considerations">Programming Style Considerations</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="main/model/vocab.html"><code class="docutils literal notranslate"><span class="pre">EHRAuditLogitsProcessor</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/vocab.html#model.vocab.EHRAuditTokenizer"><code class="docutils literal notranslate"><span class="pre">EHRAuditTokenizer</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/vocab.html#model.vocab.EHRVocab"><code class="docutils literal notranslate"><span class="pre">EHRVocab</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/data.html"><code class="docutils literal notranslate"><span class="pre">EHRAuditDataset</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/data.html#model.data.timestamp_space_calculation"><code class="docutils literal notranslate"><span class="pre">timestamp_space_calculation()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/model.html"><code class="docutils literal notranslate"><span class="pre">EHRAuditGPT2</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/model.html#model.model.EHRAuditLlama"><code class="docutils literal notranslate"><span class="pre">EHRAuditLlama</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/model.html#model.model.EHRAuditRWKV"><code class="docutils literal notranslate"><span class="pre">EHRAuditRWKV</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/model.html#model.model.EHRAuditTransformerXL"><code class="docutils literal notranslate"><span class="pre">EHRAuditTransformerXL</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/model.html#model.model.TabularLoss"><code class="docutils literal notranslate"><span class="pre">TabularLoss</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/modules.html"><code class="docutils literal notranslate"><span class="pre">EHRAuditDataModule</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/modules.html#model.modules.EHRAuditPretraining"><code class="docutils literal notranslate"><span class="pre">EHRAuditPretraining</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/modules.html#model.modules.collate_fn"><code class="docutils literal notranslate"><span class="pre">collate_fn()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/model/modules.html#model.modules.worker_fn"><code class="docutils literal notranslate"><span class="pre">worker_fn()</span></code></a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="main/train.html">train.py</a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/entropy_cache.html">entropy_cache.py</a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/cached_experiments.html">cached_experiments.py</a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/cached_experiments.html#cached_experiments.Experiment"><code class="docutils literal notranslate"><span class="pre">Experiment</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/cached_experiments.html#cached_experiments.PerFieldEntropyExperiment"><code class="docutils literal notranslate"><span class="pre">PerFieldEntropyExperiment</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/gen.html">gen.py</a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/gen.html#gen.GenerationExperiment"><code class="docutils literal notranslate"><span class="pre">GenerationExperiment</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/gen.html#gen.NextActionExperiment"><code class="docutils literal notranslate"><span class="pre">NextActionExperiment</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/gen.html#gen.ScoringExperiment"><code class="docutils literal notranslate"><span class="pre">ScoringExperiment</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/entropy.html">entropy.py</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="main/app.html"><code class="docutils literal notranslate"><span class="pre">gen_random_df()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/app.html#app.perform_action"><code class="docutils literal notranslate"><span class="pre">perform_action()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="main/publish_hf.html">publish_hf.py</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="#">Documentation overview</a><ul>
+      <li>Next: <a href="howto.html" title="next chapter">Training from Scratch</a></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;Washington University in St. Louis.
+      
+      |
+      <a href="_sources/index.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
